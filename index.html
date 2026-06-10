@@ -1,0 +1,2654 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Aprova+ · Estudos para Concursos</title>
+<link rel="manifest" href="manifest.webmanifest">
+
+<!-- ===== Bibliotecas via CDN ===== -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<script>
+// Configuração do Tailwind (tema escuro por classe + paleta pastel)
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        ink:    { 50:'#f7f7f8',100:'#ededf0',200:'#d9d9e0',300:'#b9b9c6',400:'#8f8fa3',500:'#6b6b80',600:'#525266',700:'#3f3f51',800:'#2a2a38',850:'#222230',900:'#1a1a24',950:'#121219' },
+        accent: { 100:'#e4e4f4',200:'#c9c9ea',300:'#a8a8dc',400:'#8888cc',500:'#6c6cbb',600:'#5757a3' },
+        sage:   { 100:'#e3eee5',300:'#a9cdb1',500:'#6fa87c' },
+        blush:  { 100:'#f6e4e4',300:'#e0adad',500:'#c97f7f' },
+        butter: { 100:'#f7efd8',300:'#e6d093',500:'#cdae55' },
+      },
+      fontFamily: {
+        reader: ['Georgia','Iowan Old Style','Times New Roman','serif'],
+        ui: ['-apple-system','BlinkMacSystemFont','Segoe UI','Inter','sans-serif'],
+      }
+    }
+  }
+}
+</script>
+
+<style>
+  /* ===== Estilos base ===== */
+  html { -webkit-text-size-adjust: 100%; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overscroll-behavior: none; }
+  * { -webkit-tap-highlight-color: transparent; }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: rgba(128,128,150,.35); border-radius: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* ===== Leitor (Reader Mode estilo Kindle) ===== */
+  #readerContent {
+    font-family: Georgia, 'Iowan Old Style', serif;
+    line-height: 1.85;
+    letter-spacing: .01em;
+    word-break: break-word;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  #readerContent p { margin-bottom: 1.1em; text-align: justify; }
+
+  /* Cores de grifo (claro/escuro) */
+  .hl-y { background: rgba(250, 220, 100, .55); border-radius: 2px; padding: 0 1px; }
+  .hl-g { background: rgba(140, 220, 160, .5);  border-radius: 2px; padding: 0 1px; }
+  .hl-p { background: rgba(240, 160, 190, .5);  border-radius: 2px; padding: 0 1px; }
+  .dark .hl-y { background: rgba(220, 180, 50, .45); }
+  .dark .hl-g { background: rgba(90, 180, 120, .40); }
+  .dark .hl-p { background: rgba(210, 120, 160, .40); }
+
+  /* Camada de canvas (Apple Pencil) sobre o texto */
+  #penCanvas { position: absolute; inset: 0; touch-action: none; }
+  .pen-active #readerContent { -webkit-user-select: none; user-select: none; }
+
+  /* Cartão de flashcard com flip */
+  .flip-card { perspective: 1200px; }
+  .flip-inner { transition: transform .45s; transform-style: preserve-3d; position: relative; }
+  .flip-card.flipped .flip-inner { transform: rotateY(180deg); }
+  .flip-face { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .flip-back { transform: rotateY(180deg); position: absolute; inset: 0; }
+
+  /* Animações sutis */
+  .fade-in { animation: fadeIn .25s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  /* Toolbar flutuante de grifo */
+  #hlToolbar { position: absolute; z-index: 50; display: none; }
+
+  /* Esconde elementos por view */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* Botões de navegação */
+  .nav-btn.active { background: rgba(108,108,187,.14); color: #6c6cbb; }
+  .dark .nav-btn.active { background: rgba(136,136,204,.18); color: #a8a8dc; }
+
+  /* ===== Lei seca estruturada ===== */
+  .lei-head { text-align: center; font-weight: 700; margin: 1.6em 0 .9em; font-size: .85em; letter-spacing: .06em; opacity: .8; }
+  .lei-art  { margin-bottom: 1.5em; }
+  .lei-art p { margin-bottom: .45em; text-align: left; }
+  .art-num  { color: #6c6cbb; font-weight: 700; }
+  .dark .art-num { color: #a8a8dc; }
+  .lei-par  { margin-left: 1.3em; }
+  .lei-inc  { margin-left: 2.4em; }
+  .lei-ali  { margin-left: 3.5em; }
+  .art-gen  { float: right; font-size: 13px; line-height: 1; padding: 4px 8px; border-radius: 9px;
+              background: rgba(108,108,187,.13); margin-left: 8px; user-select: none; -webkit-user-select: none; }
+
+  /* ===== Markdown renderizado (resumos / mapas) ===== */
+  .md-body h2 { font-weight: 700; font-size: 1.05em; margin: 1em 0 .4em; color: #6c6cbb; }
+  .dark .md-body h2 { color: #a8a8dc; }
+  .md-body h3, .md-body h4, .md-body h5 { font-weight: 600; margin: .8em 0 .3em; }
+  .md-body ul { padding-left: 1.1em; margin-bottom: .4em; }
+  .md-body li { margin-bottom: .3em; list-style: none; position: relative; }
+  .md-body li::before { content: '–'; position: absolute; left: -1em; opacity: .45; }
+  .md-body p { margin-bottom: .5em; }
+
+  input, select, textarea { outline: none; }
+  input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 2px rgba(108,108,187,.35); }
+</style>
+</head>
+
+<body class="bg-ink-50 text-ink-800 dark:bg-ink-950 dark:text-ink-100 transition-colors duration-200">
+
+<div class="flex h-[100dvh] overflow-hidden">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="hidden md:flex flex-col w-56 shrink-0 border-r border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-4 gap-1">
+    <div class="flex items-center gap-2 px-2 mb-5">
+      <div class="w-8 h-8 rounded-xl bg-accent-500 flex items-center justify-center text-white font-bold">A+</div>
+      <div>
+        <div class="font-semibold leading-tight">Aprova+</div>
+        <div class="text-xs text-ink-400">Estudos de elite</div>
+      </div>
+    </div>
+    <nav id="sideNav" class="flex flex-col gap-1 text-sm"></nav>
+    <div class="mt-auto flex items-center justify-between px-2">
+      <button id="themeBtn" class="p-2 rounded-lg hover:bg-ink-100 dark:hover:bg-ink-800" title="Alternar tema">
+        <i data-lucide="moon" class="w-5 h-5"></i>
+      </button>
+      <span class="text-[10px] text-ink-400">v1.0 · local</span>
+    </div>
+  </aside>
+
+  <!-- ===================== ÁREA PRINCIPAL ===================== -->
+  <main class="flex-1 flex flex-col min-w-0">
+    <div id="viewsWrap" class="flex-1 overflow-y-auto pb-20 md:pb-6">
+
+      <!-- ========== DASHBOARD ========== -->
+      <section id="view-dashboard" class="view max-w-5xl mx-auto p-4 md:p-8"></section>
+
+      <!-- ========== BIBLIOTECA ========== -->
+      <section id="view-biblioteca" class="view max-w-5xl mx-auto p-4 md:p-8"></section>
+
+      <!-- ========== LEITOR ========== -->
+      <section id="view-leitor" class="view h-full"></section>
+
+      <!-- ========== REVISÃO ========== -->
+      <section id="view-revisao" class="view max-w-3xl mx-auto p-4 md:p-8"></section>
+
+      <!-- ========== QUESTÕES ========== -->
+      <section id="view-questoes" class="view max-w-3xl mx-auto p-4 md:p-8"></section>
+
+      <!-- ========== CICLO DE ESTUDOS ========== -->
+      <section id="view-ciclo" class="view max-w-4xl mx-auto p-4 md:p-8"></section>
+
+      <!-- ========== SIMULADOS ========== -->
+      <section id="view-simulados" class="view max-w-3xl mx-auto p-4 md:p-8"></section>
+
+      <!-- ========== DISCURSIVAS ========== -->
+      <section id="view-discursiva" class="view max-w-3xl mx-auto p-4 md:p-8"></section>
+
+      <!-- ========== CADERNO DE ERROS ========== -->
+      <section id="view-erros" class="view max-w-3xl mx-auto p-4 md:p-8"></section>
+
+      <!-- ========== CONFIGURAÇÕES ========== -->
+      <section id="view-config" class="view max-w-2xl mx-auto p-4 md:p-8"></section>
+
+    </div>
+
+    <!-- ===== NAV INFERIOR (iPad portrait / mobile) ===== -->
+    <nav id="bottomNav" class="md:hidden fixed bottom-0 inset-x-0 z-40 flex justify-around items-center h-16 bg-white/90 dark:bg-ink-900/90 backdrop-blur border-t border-ink-200 dark:border-ink-800"></nav>
+  </main>
+</div>
+
+<!-- ===== Toolbar flutuante de grifo ===== -->
+<div id="hlToolbar" class="bg-white dark:bg-ink-800 shadow-xl rounded-full px-2 py-1.5 flex items-center gap-1 border border-ink-200 dark:border-ink-700">
+  <button data-hl="hl-y" class="w-7 h-7 rounded-full" style="background:#fadc64"></button>
+  <button data-hl="hl-g" class="w-7 h-7 rounded-full" style="background:#8cdca0"></button>
+  <button data-hl="hl-p" class="w-7 h-7 rounded-full" style="background:#f0a0be"></button>
+  <button data-hl="remove" class="w-7 h-7 rounded-full flex items-center justify-center text-ink-400 hover:text-blush-500"><i data-lucide="eraser" class="w-4 h-4"></i></button>
+  <div class="w-px h-5 bg-ink-200 dark:bg-ink-700 mx-1"></div>
+  <button id="hlGenCards" class="text-xs font-medium px-2 py-1 rounded-full bg-accent-100 dark:bg-ink-700 text-accent-600 dark:text-accent-300 whitespace-nowrap">⚡ Flashcards</button>
+  <button id="hlGenQ" class="text-xs font-medium px-2 py-1 rounded-full bg-sage-100 dark:bg-ink-700 text-sage-500 dark:text-sage-300 whitespace-nowrap">📝 Questão</button>
+</div>
+
+<!-- ===== Widget do cronômetro (flutuante) ===== -->
+<div id="timerWidget" class="hidden fixed bottom-20 md:bottom-4 right-4 z-40 bg-ink-900 text-white dark:bg-white dark:text-ink-900 rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-3">
+  <div>
+    <div id="twTime" class="text-xl font-semibold tabular-nums leading-none">00:00</div>
+    <div id="twInfo" class="text-[10px] opacity-70 mt-1 max-w-[130px] truncate"></div>
+  </div>
+  <button id="twPause" onclick="pausarTimer()" class="w-9 h-9 rounded-xl bg-white/15 dark:bg-ink-900/10 text-base">⏸</button>
+  <button onclick="pararTimer()" class="w-9 h-9 rounded-xl bg-blush-500/90 text-white text-base">■</button>
+</div>
+
+<!-- ===== Modal genérico ===== -->
+<div id="modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+  <div id="modalBox" class="bg-white dark:bg-ink-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85dvh] overflow-y-auto p-6 fade-in"></div>
+</div>
+
+<!-- ===== Toast ===== -->
+<div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-[60] hidden px-4 py-2.5 rounded-xl bg-ink-900 text-white dark:bg-white dark:text-ink-900 text-sm shadow-xl"></div>
+
+<script>
+/* =====================================================================
+   APROVA+ · App de estudos para concursos
+   Arquitetura: SPA vanilla JS · persistência em LocalStorage
+   Módulos: Dados · Biblioteca · Leitor · IA · Revisão (SM-2) · Dashboard
+   ===================================================================== */
+
+'use strict';
+
+/* ============================ 1. DADOS ============================ */
+const DB_KEY = 'aprovaplus_db_v1';
+
+const defaultDB = () => ({
+  materias: [],            // {id, nome, topicos:[{id, nome}]}
+  texts: [],               // {id, materiaId, topicoId, titulo, kind:'texto'|'lei', html, drawing, createdAt}
+  cards: [],               // {id, materiaId, topicoId, front, back, ef, intervalo, reps, due}
+  questoes: [],            // banco de questões (IA + importadas) {…, origem, lastResult}
+  errors: [],              // caderno de erros COM SRS: {…, ef, intervalo, reps, due}
+  answers: [],             // {materiaId, topicoId, correct, ts}
+  resumos: [],             // {id, textId, tipo:'resumo'|'mapa'|'esquema', md, createdAt}
+  sessions: [],            // sessões de estudo: {materiaId, min, ts}
+  simulados: [],           // histórico: {id, ts, total, acertos, tempoMin, n}
+  discursivas: [],         // {id, materiaId, banca, tipo, tema, resposta, correcao, ts}
+  dailyLog: { date: '', novos: 0 },          // controle do limite diário de cards novos
+  bancaStats: {},          // {banca: {min, q}} — ritmo médio por banca (simulados)
+  edital: { horasSemana: 20, pesos: {}, dataProva: '' },   // pesos: {materiaId: 1..5}
+  settings: { apiKey: '', model: 'claude-sonnet-4-5', theme: 'light', fontSize: 19,
+              foco: 25, pausa: 5, autoBackup: true, lastBackup: 0,
+              maxNovos: 20, maxRev: 100, metaDiaria: 120 }
+});
+
+let db = defaultDB();   // substituído no boot() pelo conteúdo do IndexedDB
+
+/* migração de dados de versões anteriores */
+function migrate(d) {
+  d.texts.forEach(t => {
+    if (!t.kind) t.kind = 'texto';
+    if (t.leituras === undefined) { t.leituras = 0; t.proxLeitura = null; }
+  });
+  d.errors.forEach(e => {
+    if (e.ef === undefined) { e.ef = 2.5; e.intervalo = 1; e.reps = 0; e.due = Date.now(); }
+  });
+  d.questoes.forEach(q => { if (!q.origem) q.origem = 'ia'; });
+  d.cards.forEach(c => { if (!c.tipo) c.tipo = (c.front || '').includes('______') ? 'cloze' : 'basico'; });
+  return d;
+}
+function mergeDB(parsed) {
+  const d = Object.assign(defaultDB(), parsed);
+  d.settings = Object.assign(defaultDB().settings, parsed.settings || {});
+  d.edital = Object.assign(defaultDB().edital, parsed.edital || {});
+  d.dailyLog = Object.assign(defaultDB().dailyLog, parsed.dailyLog || {});
+  return migrate(d);
+}
+
+/* ---------- IndexedDB: centenas de MB, com confirmação de gravação ----------
+   LocalStorage (limite ~5MB no Safari) fica apenas como fallback de emergência
+   e como fonte de migração de dados antigos. --------------------------------- */
+const IDB_NAME = 'aprovaplus', IDB_STORE = 'kv';
+function idbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(IDB_NAME, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(IDB_STORE);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbGet(k) {
+  const d = await idbOpen();
+  return new Promise((res, rej) => {
+    const t = d.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(k);
+    t.onsuccess = () => res(t.result);
+    t.onerror = () => rej(t.error);
+  });
+}
+async function idbSet(k, v) {
+  const d = await idbOpen();
+  return new Promise((res, rej) => {
+    const tx = d.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(v, k);
+    tx.oncomplete = () => res(true);     // gravação CONFIRMADA pela transação
+    tx.onerror = () => rej(tx.error);
+    tx.onabort = () => rej(tx.error);
+  });
+}
+
+let _saveTimer = null, lastSaveOk = true;
+function save() {                         // debounce: agrupa gravações em 300ms
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(flushSave, 300);
+}
+async function flushSave() {
+  clearTimeout(_saveTimer);
+  const json = JSON.stringify(db);
+  try {
+    await idbSet('db', json);
+    lastSaveOk = true;
+  } catch (e) {
+    lastSaveOk = false;
+    try { localStorage.setItem(DB_KEY, json); } catch (e2) { /* sem espaço no fallback */ }
+    toast('⚠️ Falha ao salvar no banco — exporte um backup AGORA (Ajustes)', 5000);
+  }
+}
+async function loadDB() {
+  try {
+    const raw = await idbGet('db');
+    if (raw) return mergeDB(JSON.parse(raw));
+  } catch (e) { /* IDB indisponível: cai no legado */ }
+  try {
+    const leg = localStorage.getItem(DB_KEY);  // migração de quem usava LocalStorage
+    if (leg) return mergeDB(JSON.parse(leg));
+  } catch (e) {}
+  return defaultDB();
+}
+// grava imediatamente quando o app vai para segundo plano (iPad: trocar de app)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { if (currentView === 'leitor') saveReaderHTML(); flushSave(); }
+});
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+/* ---------- helpers ---------- */
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const materiaById = id => db.materias.find(m => m.id === id);
+const topicoNome = (mId, tId) => (materiaById(mId)?.topicos.find(t => t.id === tId)?.nome) || '';
+const fmtDate = ts => new Date(ts).toLocaleDateString('pt-BR');
+
+function toast(msg, ms = 2200) {
+  const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), ms);
+}
+
+/* ---------- modal ---------- */
+function openModal(html) {
+  $('#modalBox').innerHTML = html;
+  $('#modal').classList.remove('hidden');
+  $('#modal').classList.add('flex');
+  lucide.createIcons();
+}
+function closeModal() {
+  $('#modal').classList.add('hidden');
+  $('#modal').classList.remove('flex');
+}
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+
+/* ============================ 2. NAVEGAÇÃO ============================ */
+const VIEWS = [
+  { id: 'dashboard',  icon: 'layout-dashboard', label: 'Painel' },
+  { id: 'biblioteca', icon: 'library',          label: 'Biblioteca' },
+  { id: 'ciclo',      icon: 'calendar-range',   label: 'Ciclo' },
+  { id: 'revisao',    icon: 'layers',           label: 'Revisão' },
+  { id: 'questoes',   icon: 'list-checks',      label: 'Questões' },
+  { id: 'simulados',  icon: 'timer',            label: 'Simulados' },
+  { id: 'discursiva', icon: 'pen-line',         label: 'Discursiva' },
+  { id: 'erros',      icon: 'x-circle',         label: 'Erros' },
+  { id: 'config',     icon: 'settings',         label: 'Ajustes' },
+];
+let currentView = 'dashboard';
+
+function renderNav() {
+  const mk = v => `
+    <button onclick="showView('${v.id}')" data-v="${v.id}"
+      class="nav-btn flex items-center gap-3 px-3 py-2.5 rounded-xl text-ink-500 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-800 transition ${currentView===v.id?'active':''}">
+      <i data-lucide="${v.icon}" class="w-5 h-5"></i><span>${v.label}</span>
+    </button>`;
+  $('#sideNav').innerHTML = VIEWS.map(mk).join('');
+  $('#bottomNav').innerHTML = VIEWS.map(v => `
+    <button onclick="showView('${v.id}')" data-v="${v.id}"
+      class="nav-btn flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xl text-[9px] text-ink-400 dark:text-ink-400 ${currentView===v.id?'active':''}">
+      <i data-lucide="${v.icon}" class="w-[18px] h-[18px]"></i>${v.label}
+    </button>`).join('');
+  lucide.createIcons();
+}
+
+function showView(id) {
+  currentView = id;
+  $$('.view').forEach(v => v.classList.remove('active'));
+  $('#view-' + id).classList.add('active');
+  renderNav();
+  const renderers = { dashboard: renderDashboard, biblioteca: renderBiblioteca, ciclo: renderCiclo, revisao: renderRevisao, questoes: renderQuestoes, simulados: renderSimulados, discursiva: renderDiscursiva, erros: renderErros, config: renderConfig };
+  if (renderers[id]) renderers[id]();
+}
+
+/* ---------- tema ---------- */
+function applyTheme() {
+  document.documentElement.classList.toggle('dark', db.settings.theme === 'dark');
+}
+$('#themeBtn').addEventListener('click', () => {
+  db.settings.theme = db.settings.theme === 'dark' ? 'light' : 'dark';
+  save(); applyTheme();
+});
+
+/* ============================ 3. DASHBOARD ============================ */
+function statsPorMateria() {
+  const map = {};
+  db.answers.forEach(a => {
+    if (!map[a.materiaId]) map[a.materiaId] = { total: 0, certas: 0 };
+    map[a.materiaId].total++; if (a.correct) map[a.materiaId].certas++;
+  });
+  return map;
+}
+
+function renderDashboard() {
+  const total = db.answers.length;
+  const certas = db.answers.filter(a => a.correct).length;
+  const taxa = total ? Math.round(certas / total * 100) : 0;
+  const due = cardsDue('all').length + errosDue().length;
+  const minSemana = Object.values(horasEstudadasSemana()).reduce((a, b) => a + b, 0);
+  const rec = recomendacao();
+  const porMat = statsPorMateria();
+  const fracos = topicosFracos();
+
+  const kpi = (icon, val, label, cls) => `
+    <div class="bg-white dark:bg-ink-900 rounded-2xl p-5 border border-ink-100 dark:border-ink-800">
+      <div class="flex items-center gap-2 text-ink-400 text-xs mb-2"><i data-lucide="${icon}" class="w-4 h-4"></i>${label}</div>
+      <div class="text-3xl font-semibold ${cls||''}">${val}</div>
+    </div>`;
+
+  const barras = db.materias.map(m => {
+    const s = porMat[m.id] || { total: 0, certas: 0 };
+    const pct = s.total ? Math.round(s.certas / s.total * 100) : 0;
+    return `
+      <div class="mb-4">
+        <div class="flex justify-between text-sm mb-1.5">
+          <span class="font-medium">${esc(m.nome)}</span>
+          <span class="text-ink-400">${s.certas}/${s.total} · ${pct}%</span>
+        </div>
+        <div class="h-2.5 rounded-full bg-ink-100 dark:bg-ink-800 overflow-hidden">
+          <div class="h-full rounded-full bg-accent-400" style="width:${pct}%"></div>
+        </div>
+      </div>`;
+  }).join('') || `<p class="text-sm text-ink-400">Responda questões para ver estatísticas por matéria.</p>`;
+
+  const st = streak();
+  const minHoje = db.sessions.filter(s => new Date(s.ts).toDateString() === new Date().toDateString()).reduce((a, b) => a + b.min, 0);
+  const metaPct = Math.min(100, Math.round(minHoje / (db.settings.metaDiaria || 120) * 100));
+  const diasProva = db.edital.dataProva ? Math.ceil((new Date(db.edital.dataProva + 'T23:59:59') - Date.now()) / 864e5) : null;
+  const cob = cobertura();
+
+  $('#view-dashboard').innerHTML = `
+    <div class="flex items-center justify-between mb-1">
+      <h1 class="text-2xl font-semibold">Olá! 👋</h1>
+      <button onclick="modalBusca()" title='Busca global (tecla "/")' class="p-2.5 rounded-xl border border-ink-200 dark:border-ink-700 hover:bg-ink-100 dark:hover:bg-ink-800"><i data-lucide="search" class="w-4 h-4"></i></button>
+    </div>
+    <p class="text-ink-400 text-sm mb-5">Seu progresso até agora.</p>
+
+    <div class="flex flex-wrap items-center gap-3 mb-5">
+      ${diasProva !== null ? `
+      <button onclick="showView('ciclo')" class="flex items-center gap-3 bg-ink-900 dark:bg-white text-white dark:text-ink-900 rounded-2xl px-5 py-3">
+        <span class="text-2xl font-semibold">${diasProva > 0 ? diasProva : '🎯'}</span>
+        <span class="text-left text-xs leading-tight">${diasProva > 0 ? 'dias para<br>a prova' : 'dia da<br>prova!'}</span>
+        ${cob.tot ? `<span class="ml-2 pl-3 border-l border-white/20 dark:border-ink-900/20 text-xs">edital<br><b>${cob.pct}%</b> coberto</span>` : ''}
+      </button>` : ''}
+      <div class="flex items-center gap-3 bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl px-5 py-3 flex-1 min-w-[220px]">
+        <span class="text-2xl">🔥</span>
+        <div class="flex-1">
+          <div class="text-xs text-ink-400">sequência: <b class="text-ink-700 dark:text-ink-100">${st} dia${st !== 1 ? 's' : ''}</b> · hoje: ${minHoje}/${db.settings.metaDiaria} min</div>
+          <div class="h-2 rounded-full bg-ink-100 dark:bg-ink-800 overflow-hidden mt-1.5">
+            <div class="h-full rounded-full ${metaPct >= 100 ? 'bg-sage-500' : 'bg-butter-300'}" style="width:${metaPct}%"></div>
+          </div>
+        </div>
+        ${metaPct >= 100 ? '<span>✅</span>' : ''}
+      </div>
+    </div>
+
+    ${rec && rec.deficit > 0.05 ? `
+    <div class="bg-accent-500 text-white rounded-2xl p-5 mb-6 flex flex-wrap items-center gap-4">
+      <div class="flex-1 min-w-[200px]">
+        <div class="text-xs opacity-80 mb-1">🎯 Estudar agora (pelo seu ciclo)</div>
+        <div class="text-xl font-semibold">${esc(rec.nome)}</div>
+        <div class="text-xs opacity-80 mt-1">faltam ${rec.deficit.toFixed(1)}h esta semana · meta ${rec.meta.toFixed(1)}h · acerto ${Math.round(rec.acc*100)}%</div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="modalTimer('${rec.materiaId}')" class="px-4 py-2.5 rounded-xl bg-white text-accent-600 text-sm font-semibold">▶ Cronômetro</button>
+        <button onclick="showView('ciclo')" class="px-4 py-2.5 rounded-xl bg-white/20 text-sm font-medium">Ver ciclo</button>
+      </div>
+    </div>` : ''}
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      ${kpi('list-checks', total, 'Questões respondidas')}
+      ${kpi('target', taxa + '%', 'Taxa de acerto', taxa >= 70 ? 'text-sage-500' : taxa >= 50 ? 'text-butter-500' : 'text-blush-500')}
+      ${kpi('layers', due, 'Para revisar hoje', due > 0 ? 'text-accent-500' : '')}
+      ${kpi('clock', (minSemana/60).toFixed(1) + 'h', 'Estudo esta semana', '')}
+    </div>
+
+    ${due > 0 ? `<button onclick="showView('revisao')" class="w-full mb-6 py-3.5 rounded-2xl bg-accent-500 hover:bg-accent-600 text-white font-medium flex items-center justify-center gap-2"><i data-lucide="play" class="w-4 h-4"></i>Revisar ${due} item${due>1?'s':''} agora (cards + erros)</button>` : ''}
+
+    <div class="grid md:grid-cols-2 gap-4 mb-6">
+      <div class="bg-white dark:bg-ink-900 rounded-2xl p-5 border border-ink-100 dark:border-ink-800">
+        <h2 class="font-semibold mb-3 text-sm flex items-center gap-2"><i data-lucide="trending-up" class="w-4 h-4 text-ink-400"></i>Taxa de acerto por semana</h2>
+        ${svgAcuracia()}
+      </div>
+      <div class="bg-white dark:bg-ink-900 rounded-2xl p-5 border border-ink-100 dark:border-ink-800">
+        <h2 class="font-semibold mb-3 text-sm flex items-center gap-2"><i data-lucide="flame" class="w-4 h-4 text-ink-400"></i>Constância (12 semanas)</h2>
+        <div class="overflow-x-auto">${heatmapHTML()}</div>
+      </div>
+    </div>
+
+    ${fracos.length ? `
+    <div class="bg-white dark:bg-ink-900 rounded-2xl p-5 border border-ink-100 dark:border-ink-800 mb-6">
+      <h2 class="font-semibold mb-3 text-sm flex items-center gap-2"><i data-lucide="crosshair" class="w-4 h-4 text-blush-500"></i>Seus pontos fracos (por tópico)</h2>
+      ${fracos.map(f => `
+        <div class="flex items-center justify-between py-2 border-b border-ink-50 dark:border-ink-850 last:border-0 text-sm">
+          <span class="min-w-0 truncate pr-3">${esc(f.nome)}</span>
+          <span class="font-semibold ${f.pct < 60 ? 'text-blush-500' : 'text-butter-500'} shrink-0">${f.pct}% <span class="text-ink-300 font-normal text-xs">(${f.n}q)</span></span>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <h2 class="font-semibold mb-4 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-4 h-4 text-ink-400"></i>Desempenho por matéria</h2>
+    <div class="bg-white dark:bg-ink-900 rounded-2xl p-5 border border-ink-100 dark:border-ink-800">${barras}</div>`;
+  lucide.createIcons();
+}
+
+/* ============================ 4. BIBLIOTECA ============================ */
+function renderBiblioteca() {
+  const matCards = db.materias.map(m => {
+    const txts = db.texts.filter(t => t.materiaId === m.id);
+    const nCards = db.cards.filter(c => c.materiaId === m.id).length;
+    return `
+    <div class="bg-white dark:bg-ink-900 rounded-2xl border border-ink-100 dark:border-ink-800 p-5 mb-4">
+      <div class="flex items-start justify-between mb-1">
+        <h3 class="font-semibold text-lg">${esc(m.nome)}</h3>
+        <div class="flex gap-1">
+          <button onclick="modalTopicos('${m.id}')" class="p-2 rounded-lg text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-800" title="Tópicos"><i data-lucide="tags" class="w-4 h-4"></i></button>
+          <button onclick="delMateria('${m.id}')" class="p-2 rounded-lg text-ink-400 hover:text-blush-500 hover:bg-ink-100 dark:hover:bg-ink-800" title="Excluir"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        </div>
+      </div>
+      <div class="text-xs text-ink-400 mb-3">${m.topicos.length} tópico(s) · ${txts.length} texto(s) · ${nCards} flashcard(s)</div>
+      ${txts.map(t => `
+        <button onclick="openReader('${t.id}')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-ink-50 dark:hover:bg-ink-850 text-left group">
+          <i data-lucide="${t.kind === 'lei' ? 'scale' : 'file-text'}" class="w-4 h-4 ${t.kind === 'lei' ? 'text-butter-500' : 'text-accent-400'} shrink-0"></i>
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-medium truncate">${esc(t.titulo)}</div>
+            <div class="text-[11px] text-ink-400">${esc(topicoNome(t.materiaId, t.topicoId) || 'sem tópico')} · ${fmtDate(t.createdAt)}</div>
+          </div>
+          <i data-lucide="trash-2" onclick="event.stopPropagation();delText('${t.id}')" class="w-4 h-4 text-ink-300 opacity-0 group-hover:opacity-100 hover:text-blush-500 shrink-0"></i>
+        </button>`).join('') || '<p class="text-xs text-ink-300 dark:text-ink-500 px-3">Nenhum texto ainda.</p>'}
+    </div>`;
+  }).join('');
+
+  $('#view-biblioteca').innerHTML = `
+    <div class="flex items-center justify-between mb-6">
+      <div><h1 class="text-2xl font-semibold">Biblioteca</h1><p class="text-ink-400 text-sm">Matérias, tópicos e seus materiais.</p></div>
+      <div class="flex gap-2">
+        <button onclick="modalNovaMateria()" class="px-3.5 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 text-sm font-medium hover:bg-ink-100 dark:hover:bg-ink-800 flex items-center gap-1.5"><i data-lucide="folder-plus" class="w-4 h-4"></i><span class="hidden sm:inline">Matéria</span></button>
+        <button onclick="modalNovoTexto()" class="px-3.5 py-2.5 rounded-xl bg-accent-500 hover:bg-accent-600 text-white text-sm font-medium flex items-center gap-1.5"><i data-lucide="plus" class="w-4 h-4"></i><span class="hidden sm:inline">Adicionar material</span></button>
+      </div>
+    </div>
+    ${matCards || `
+      <div class="text-center py-16 text-ink-400">
+        <i data-lucide="book-open" class="w-10 h-10 mx-auto mb-3 opacity-50"></i>
+        <p class="mb-4">Comece criando uma matéria e adicionando<br>seu primeiro PDF sintético ou lei seca.</p>
+        <button onclick="modalNovaMateria()" class="px-4 py-2.5 rounded-xl bg-accent-500 text-white text-sm font-medium">Criar primeira matéria</button>
+      </div>`}`;
+  lucide.createIcons();
+}
+
+/* ---------- matérias / tópicos ---------- */
+function modalNovaMateria() {
+  openModal(`
+    <h3 class="font-semibold text-lg mb-4">Nova matéria</h3>
+    <input id="inpMat" placeholder="Ex: Direito Administrativo" class="w-full px-4 py-3 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent mb-4">
+    <div class="flex justify-end gap-2">
+      <button onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-sm text-ink-400">Cancelar</button>
+      <button onclick="addMateria()" class="px-4 py-2.5 rounded-xl bg-accent-500 text-white text-sm font-medium">Criar</button>
+    </div>`);
+  $('#inpMat').focus();
+}
+function addMateria() {
+  const nome = $('#inpMat').value.trim(); if (!nome) return;
+  db.materias.push({ id: uid(), nome, topicos: [] });
+  save(); closeModal(); renderBiblioteca(); toast('Matéria criada ✓');
+}
+function delMateria(id) {
+  if (!confirm('Excluir a matéria e TODOS os textos/flashcards dela?')) return;
+  db.materias = db.materias.filter(m => m.id !== id);
+  db.texts = db.texts.filter(t => t.materiaId !== id);
+  db.cards = db.cards.filter(c => c.materiaId !== id);
+  db.questoes = db.questoes.filter(q => q.materiaId !== id);
+  save(); renderBiblioteca();
+}
+function modalTopicos(mId) {
+  const m = materiaById(mId);
+  openModal(`
+    <h3 class="font-semibold text-lg mb-1">Tópicos · ${esc(m.nome)}</h3>
+    <p class="text-xs text-ink-400 mb-4">Ex: Atos Administrativos, Licitações…</p>
+    <div class="mb-3">${m.topicos.map(t => `
+      <div class="flex items-center justify-between px-3 py-2 rounded-lg bg-ink-50 dark:bg-ink-850 mb-1.5 text-sm">
+        ${esc(t.nome)}
+        <button onclick="delTopico('${mId}','${t.id}')" class="text-ink-300 hover:text-blush-500"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>`).join('') || '<p class="text-xs text-ink-300 dark:text-ink-500">Nenhum tópico.</p>'}</div>
+    <div class="flex gap-2">
+      <input id="inpTop" placeholder="Novo tópico" class="flex-1 px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent text-sm">
+      <button onclick="addTopico('${mId}')" class="px-4 rounded-xl bg-accent-500 text-white text-sm">Adicionar</button>
+    </div>`);
+}
+function addTopico(mId) {
+  const nome = $('#inpTop').value.trim(); if (!nome) return;
+  materiaById(mId).topicos.push({ id: uid(), nome });
+  save(); modalTopicos(mId);
+}
+function delTopico(mId, tId) {
+  const m = materiaById(mId);
+  m.topicos = m.topicos.filter(t => t.id !== tId);
+  save(); modalTopicos(mId);
+}
+
+/* ---------- novo texto (colar ou PDF) ---------- */
+function selectMaterias(selId, extra = '') {
+  return `<select id="${selId}" ${extra} class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm">
+    ${db.materias.map(m => `<option value="${m.id}">${esc(m.nome)}</option>`).join('')}</select>`;
+}
+function modalNovoTexto() {
+  if (!db.materias.length) { toast('Crie uma matéria primeiro'); modalNovaMateria(); return; }
+  openModal(`
+    <h3 class="font-semibold text-lg mb-4">Adicionar material</h3>
+    <label class="text-xs font-medium text-ink-400 block mb-1">Título</label>
+    <input id="ntTitulo" placeholder="Ex: PDF Sintético — Atos Administrativos" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent text-sm mb-3">
+    <div class="grid grid-cols-2 gap-2 mb-3">
+      <div><label class="text-xs font-medium text-ink-400 block mb-1">Matéria</label>${selectMaterias('ntMat', `onchange="fillTopicos()"`)}</div>
+      <div><label class="text-xs font-medium text-ink-400 block mb-1">Tópico</label><select id="ntTop" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm"></select></div>
+    </div>
+    <label class="text-xs font-medium text-ink-400 block mb-1">Tipo de material</label>
+    <div class="grid grid-cols-2 gap-2 mb-3">
+      <label class="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 text-sm cursor-pointer">
+        <input type="radio" name="ntKind" value="texto" checked class="accent-[#6c6cbb]">📄 Texto / PDF
+      </label>
+      <label class="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 text-sm cursor-pointer">
+        <input type="radio" name="ntKind" value="lei" class="accent-[#6c6cbb]">⚖️ Lei seca
+      </label>
+    </div>
+    <p class="text-[11px] text-ink-400 -mt-1 mb-3">Lei seca: cole o texto da lei — o app reconhece artigos, parágrafos, incisos e alíneas, cria navegação por artigo e botão ⚡ para gerar flashcards de cada artigo.</p>
+    <label class="text-xs font-medium text-ink-400 block mb-1">Conteúdo — cole o texto OU envie um PDF</label>
+    <textarea id="ntTexto" rows="6" placeholder="Cole aqui o texto do material…" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent text-sm mb-2"></textarea>
+    <label class="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-ink-200 dark:border-ink-700 text-sm text-ink-400 cursor-pointer hover:border-accent-400 mb-1">
+      <i data-lucide="file-up" class="w-4 h-4"></i><span id="pdfLabel">Enviar PDF (extrai o texto automaticamente)</span>
+      <input type="file" id="ntPdf" accept="application/pdf" class="hidden" onchange="extractPDF(this)">
+    </label>
+    <p id="pdfStatus" class="text-xs text-accent-500 h-4 mb-3"></p>
+    <div class="flex justify-end gap-2">
+      <button onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-sm text-ink-400">Cancelar</button>
+      <button onclick="addTexto()" class="px-4 py-2.5 rounded-xl bg-accent-500 text-white text-sm font-medium">Salvar material</button>
+    </div>`);
+  fillTopicos();
+}
+function fillTopicos() {
+  const m = materiaById($('#ntMat').value);
+  $('#ntTop').innerHTML = `<option value="">— sem tópico —</option>` +
+    (m ? m.topicos.map(t => `<option value="${t.id}">${esc(t.nome)}</option>`).join('') : '');
+}
+
+/* extração de texto do PDF via PDF.js */
+async function extractPDF(input) {
+  const file = input.files[0]; if (!file) return;
+  const st = $('#pdfStatus');
+  try {
+    st.textContent = 'Lendo PDF…';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    let out = '';
+    for (let p = 1; p <= pdf.numPages; p++) {
+      st.textContent = `Extraindo página ${p}/${pdf.numPages}…`;
+      const page = await pdf.getPage(p);
+      const tc = await page.getTextContent();
+      let lastY = null, pageTxt = '';
+      tc.items.forEach(it => {
+        const y = it.transform[5];
+        if (lastY !== null && Math.abs(y - lastY) > 14) pageTxt += '\n\n';
+        else if (lastY !== null && Math.abs(y - lastY) > 2) pageTxt += '\n';
+        pageTxt += it.str;
+        lastY = y;
+      });
+      out += pageTxt + '\n\n';
+    }
+    $('#ntTexto').value = out.replace(/\n{3,}/g, '\n\n').trim();
+    if (!$('#ntTitulo').value) $('#ntTitulo').value = file.name.replace(/\.pdf$/i, '');
+    st.textContent = `✓ ${pdf.numPages} página(s) extraída(s). Revise o texto acima.`;
+  } catch (e) {
+    st.textContent = 'Erro ao ler o PDF: ' + e.message;
+  }
+}
+
+/* converte texto bruto em HTML de parágrafos */
+function textoParaHTML(txt) {
+  return txt.split(/\n{2,}/).map(p => `<p>${esc(p.trim()).replace(/\n/g, '<br>')}</p>`).filter(p => p !== '<p></p>').join('');
+}
+function addTexto() {
+  const titulo = $('#ntTitulo').value.trim();
+  const txt = $('#ntTexto').value.trim();
+  if (!titulo || !txt) { toast('Preencha título e conteúdo'); return; }
+  const kind = document.querySelector('input[name="ntKind"]:checked')?.value || 'texto';
+  db.texts.push({
+    id: uid(), materiaId: $('#ntMat').value, topicoId: $('#ntTop').value || null,
+    titulo, kind, html: kind === 'lei' ? leiParaHTML(txt) : textoParaHTML(txt),
+    drawing: null, createdAt: Date.now()
+  });
+  save(); closeModal(); renderBiblioteca(); toast(kind === 'lei' ? 'Lei seca estruturada ✓' : 'Material salvo ✓');
+}
+function delText(id) {
+  if (!confirm('Excluir este texto? (grifos e anotações serão perdidos)')) return;
+  db.texts = db.texts.filter(t => t.id !== id);
+  save(); renderBiblioteca();
+}
+
+/* ============================ 5. LEITOR ============================
+   Modo Leitura: toque seleciona texto → toolbar de grifo (3 cores)
+   Modo Caneta : camada de canvas captura Apple Pencil / dedo
+   =================================================================== */
+let readerTextId = null;     // texto aberto
+let penMode = false;         // false = leitura, true = caneta
+let penColor = '#5757a3';
+let penEraser = false;
+let lastSelection = '';      // trecho selecionado p/ geração por IA
+
+function openReader(textId) {
+  readerTextId = textId;
+  const t = db.texts.find(x => x.id === textId);
+  if (!t) return;
+  penMode = false; penEraser = false;
+
+  $('#view-leitor').innerHTML = `
+    <div class="h-full flex flex-col">
+      <!-- barra superior do leitor -->
+      <header class="flex items-center gap-2 px-3 py-2 border-b border-ink-200 dark:border-ink-800 bg-white/80 dark:bg-ink-900/80 backdrop-blur sticky top-0 z-30">
+        <button onclick="closeReader()" class="p-2 rounded-lg hover:bg-ink-100 dark:hover:bg-ink-800"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-semibold truncate">${esc(t.titulo)}</div>
+          <div class="text-[11px] text-ink-400 truncate">${esc(materiaById(t.materiaId)?.nome || '')}${t.topicoId ? ' · ' + esc(topicoNome(t.materiaId, t.topicoId)) : ''}</div>
+        </div>
+
+        <!-- leitura concluída → agenda releitura espaçada -->
+        <button onclick="marcarLido()" title="Marcar como lido (agenda releitura em 1/7/30/60 dias)" class="p-2 rounded-lg hover:bg-ink-100 dark:hover:bg-ink-800 text-sage-500"><i data-lucide="check-circle-2" class="w-5 h-5"></i></button>
+
+        <!-- tamanho da fonte -->
+        <button onclick="fontSize(-1)" class="p-2 rounded-lg hover:bg-ink-100 dark:hover:bg-ink-800 text-xs font-bold">A−</button>
+        <button onclick="fontSize(1)"  class="p-2 rounded-lg hover:bg-ink-100 dark:hover:bg-ink-800 text-sm font-bold">A+</button>
+
+        <!-- IA -->
+        <button onclick="modalGerarCards()" title="Gerar flashcards (IA)" class="p-2 rounded-lg hover:bg-ink-100 dark:hover:bg-ink-800 text-accent-500"><i data-lucide="zap" class="w-5 h-5"></i></button>
+        <button onclick="modalGerarQuestao()" title="Gerar questão estilo banca (IA)" class="p-2 rounded-lg hover:bg-ink-100 dark:hover:bg-ink-800 text-sage-500"><i data-lucide="file-question" class="w-5 h-5"></i></button>
+        <button onclick="modalResumos()" title="Resumos e mapas mentais (IA)" class="p-2 rounded-lg hover:bg-ink-100 dark:hover:bg-ink-800 text-butter-500"><i data-lucide="network" class="w-5 h-5"></i></button>
+
+        <!-- alternância Leitura / Caneta -->
+        <div class="flex rounded-xl bg-ink-100 dark:bg-ink-800 p-1 ml-1">
+          <button id="modeRead" onclick="setPenMode(false)" class="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1"><i data-lucide="highlighter" class="w-4 h-4"></i><span class="hidden sm:inline">Leitura</span></button>
+          <button id="modePen"  onclick="setPenMode(true)"  class="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1"><i data-lucide="pen-tool" class="w-4 h-4"></i><span class="hidden sm:inline">Caneta</span></button>
+        </div>
+      </header>
+
+      <!-- ferramentas da caneta -->
+      <div id="penTools" class="hidden items-center gap-2 px-4 py-2 border-b border-ink-200 dark:border-ink-800 bg-white/80 dark:bg-ink-900/80 backdrop-blur">
+        ${['#5757a3','#c97f7f','#6fa87c','#cdae55','#3f3f51'].map(c =>
+          `<button onclick="setPenColor('${c}')" data-pc="${c}" class="pc w-7 h-7 rounded-full border-2 border-transparent" style="background:${c}"></button>`).join('')}
+        <button onclick="toggleEraser()" id="eraserBtn" class="p-2 rounded-lg hover:bg-ink-100 dark:hover:bg-ink-800" title="Borracha"><i data-lucide="eraser" class="w-5 h-5"></i></button>
+        <button onclick="clearCanvas()" class="p-2 rounded-lg hover:bg-ink-100 dark:hover:bg-ink-800 text-blush-500" title="Apagar tudo"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+        <span class="text-[11px] text-ink-400 ml-auto">✏️ Use a Apple Pencil ou o dedo</span>
+      </div>
+
+      ${t.kind === 'lei' ? `
+      <!-- navegação por artigo (lei seca) -->
+      <div class="flex items-center gap-2 px-4 py-2 border-b border-ink-200 dark:border-ink-800 bg-white/80 dark:bg-ink-900/80 backdrop-blur">
+        <i data-lucide="scale" class="w-4 h-4 text-butter-500 shrink-0"></i>
+        <select id="artNav" onchange="irParaArtigo(this.value)" class="flex-1 max-w-xs px-3 py-1.5 rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-xs"></select>
+        <span class="text-[10px] text-ink-400 ml-auto hidden sm:inline">⚡ em cada artigo gera flashcards dele</span>
+      </div>` : ''}
+
+      <!-- área de leitura -->
+      <div id="readerScroll" class="flex-1 overflow-y-auto">
+        <div id="readerWrap" class="relative max-w-2xl mx-auto px-5 sm:px-8 py-8">
+          <div id="readerContent" style="font-size:${db.settings.fontSize}px">${t.html}</div>
+          <canvas id="penCanvas" style="pointer-events:none"></canvas>
+        </div>
+      </div>
+    </div>`;
+
+  $$('.view').forEach(v => v.classList.remove('active'));
+  $('#view-leitor').classList.add('active');
+  currentView = 'leitor'; renderNav();
+  lucide.createIcons();
+  setPenMode(false);
+  requestAnimationFrame(() => { setupCanvas(); loadDrawing(); });
+
+  // lei seca: popula navegação por artigo + delegação dos botões ⚡ por artigo
+  if (t.kind === 'lei') {
+    const arts = $$('#readerContent .lei-art');
+    const nav = $('#artNav');
+    if (nav) nav.innerHTML = '<option value="">Ir para artigo…</option>' +
+      arts.map((a, i) => `<option value="${i}">${esc(a.querySelector('.art-num')?.textContent || 'Art. ' + (i + 1))}</option>`).join('');
+  }
+  $('#readerContent').addEventListener('click', e => {
+    const b = e.target.closest('.art-gen');
+    if (!b || penMode) return;
+    e.preventDefault();
+    const art = b.closest('.lei-art');
+    const clone = art.cloneNode(true);
+    clone.querySelectorAll('.art-gen').forEach(x => x.remove());
+    modalGerarCards(clone.innerText.trim());
+  });
+}
+function irParaArtigo(i) {
+  if (i === '') return;
+  $$('#readerContent .lei-art')[+i]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* revisão espaçada da LEITURA */
+const INTERVALOS_LEITURA = [1, 7, 30, 60, 120];
+function marcarLido() {
+  const t = db.texts.find(x => x.id === readerTextId); if (!t) return;
+  t.leituras = (t.leituras || 0) + 1;
+  const d = INTERVALOS_LEITURA[Math.min(t.leituras - 1, INTERVALOS_LEITURA.length - 1)];
+  t.proxLeitura = Date.now() + d * 864e5;
+  save();
+  toast(`📖 ${t.leituras}ª leitura registrada — releitura em ${d} dia${d > 1 ? 's' : ''}`);
+}
+function closeReader() { saveReaderHTML(); showView('biblioteca'); }
+
+function fontSize(d) {
+  db.settings.fontSize = Math.min(28, Math.max(14, db.settings.fontSize + d));
+  $('#readerContent').style.fontSize = db.settings.fontSize + 'px';
+  save(); requestAnimationFrame(resizeCanvasKeep);
+}
+
+/* ---------- persistência de grifos (salva o HTML do leitor) ---------- */
+function saveReaderHTML() {
+  const t = db.texts.find(x => x.id === readerTextId);
+  const el = $('#readerContent');
+  if (t && el) { t.html = el.innerHTML; save(); }
+}
+
+/* ---------- alternância de modo ---------- */
+function setPenMode(on) {
+  penMode = on;
+  const canvas = $('#penCanvas');
+  if (canvas) canvas.style.pointerEvents = on ? 'auto' : 'none';
+  $('#penTools').classList.toggle('hidden', !on);
+  $('#penTools').classList.toggle('flex', on);
+  $('#view-leitor').classList.toggle('pen-active', on);
+  const sel = 'bg-white dark:bg-ink-900 shadow text-accent-500';
+  $('#modeRead').className = `px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 ${!on ? sel : 'text-ink-400'}`;
+  $('#modePen').className  = `px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 ${on ? sel : 'text-ink-400'}`;
+  hideHlToolbar();
+  markPenColor();
+}
+function setPenColor(c) { penColor = c; penEraser = false; markPenColor(); }
+function toggleEraser() { penEraser = !penEraser; markPenColor(); }
+function markPenColor() {
+  $$('.pc').forEach(b => b.style.borderColor = (!penEraser && b.dataset.pc === penColor) ? 'white' : 'transparent');
+  const eb = $('#eraserBtn'); if (eb) eb.classList.toggle('bg-ink-200', penEraser), eb.classList.toggle('dark:bg-ink-700', penEraser);
+}
+
+/* ---------- canvas de desenho (Apple Pencil) ---------- */
+let ctx = null, drawing = false, saveDrawTimer = null;
+
+function setupCanvas() {
+  const canvas = $('#penCanvas'), wrap = $('#readerWrap');
+  if (!canvas || !wrap) return;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = wrap.clientWidth * dpr;
+  canvas.height = wrap.scrollHeight * dpr;
+  canvas.style.width = wrap.clientWidth + 'px';
+  canvas.style.height = wrap.scrollHeight + 'px';
+  ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+  canvas.addEventListener('pointerdown', e => {
+    if (!penMode) return;
+    drawing = true;
+    canvas.setPointerCapture(e.pointerId);
+    ctx.beginPath();
+    const r = canvas.getBoundingClientRect();
+    ctx.moveTo(e.clientX - r.left, e.clientY - r.top);
+    e.preventDefault();
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!drawing || !penMode) return;
+    const r = canvas.getBoundingClientRect();
+    const pressure = (e.pointerType === 'pen' && e.pressure) ? e.pressure : 0.5;
+    if (penEraser) { ctx.globalCompositeOperation = 'destination-out'; ctx.lineWidth = 22; }
+    else { ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = penColor; ctx.lineWidth = 1 + pressure * 3.2; }
+    ctx.lineTo(e.clientX - r.left, e.clientY - r.top);
+    ctx.stroke();
+    e.preventDefault();
+  });
+  const end = () => { if (drawing) { drawing = false; scheduleSaveDrawing(); } };
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', end);
+}
+function resizeCanvasKeep() {
+  // redimensiona preservando o desenho atual
+  const data = $('#penCanvas')?.toDataURL();
+  setupCanvas();
+  if (data) drawFromDataURL(data);
+}
+function scheduleSaveDrawing() {
+  clearTimeout(saveDrawTimer);
+  saveDrawTimer = setTimeout(() => {
+    const t = db.texts.find(x => x.id === readerTextId);
+    if (t) { t.drawing = $('#penCanvas').toDataURL('image/png'); save(); }
+  }, 600);
+}
+function loadDrawing() {
+  const t = db.texts.find(x => x.id === readerTextId);
+  if (t?.drawing) drawFromDataURL(t.drawing);
+}
+function drawFromDataURL(url) {
+  const img = new Image();
+  img.onload = () => {
+    const canvas = $('#penCanvas');
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(img, 0, 0, canvas.width / (window.devicePixelRatio || 1), canvas.height / (window.devicePixelRatio || 1));
+  };
+  img.src = url;
+}
+function clearCanvas() {
+  if (!confirm('Apagar todas as anotações de caneta deste texto?')) return;
+  const canvas = $('#penCanvas');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const t = db.texts.find(x => x.id === readerTextId);
+  if (t) { t.drawing = null; save(); }
+}
+
+/* ---------- sistema de grifos ---------- */
+const hlToolbar = $('#hlToolbar');
+
+document.addEventListener('selectionchange', () => {
+  if (currentView !== 'leitor' || penMode) return;
+  const sel = getSelection();
+  if (sel.isCollapsed || !$('#readerContent')?.contains(sel.anchorNode)) { hideHlToolbar(); return; }
+  lastSelection = sel.toString().trim();
+  const rect = sel.getRangeAt(0).getBoundingClientRect();
+  hlToolbar.style.display = 'flex';
+  const tw = hlToolbar.offsetWidth || 280;
+  hlToolbar.style.left = Math.max(8, Math.min(window.innerWidth - tw - 8, rect.left + rect.width / 2 - tw / 2)) + 'px';
+  hlToolbar.style.top = (rect.top + window.scrollY - 52 > 60 ? rect.top + window.scrollY - 52 : rect.bottom + window.scrollY + 10) + 'px';
+});
+function hideHlToolbar() { hlToolbar.style.display = 'none'; }
+
+hlToolbar.addEventListener('pointerdown', e => e.preventDefault()); // não perder a seleção
+
+$$('#hlToolbar [data-hl]').forEach(btn => btn.addEventListener('click', () => {
+  const action = btn.dataset.hl;
+  if (action === 'remove') removeHighlight(); else applyHighlight(action);
+}));
+
+function applyHighlight(cls) {
+  const sel = getSelection();
+  if (sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  const span = document.createElement('span');
+  span.className = cls;
+  try { range.surroundContents(span); }
+  catch (e) { // seleção cruza elementos: extrai e envolve
+    span.appendChild(range.extractContents());
+    range.insertNode(span);
+  }
+  sel.removeAllRanges(); hideHlToolbar(); saveReaderHTML();
+}
+function removeHighlight() {
+  const sel = getSelection();
+  if (sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  $$('#readerContent .hl-y, #readerContent .hl-g, #readerContent .hl-p').forEach(s => {
+    if (range.intersectsNode(s)) {
+      const parent = s.parentNode;
+      while (s.firstChild) parent.insertBefore(s.firstChild, s);
+      parent.removeChild(s); parent.normalize();
+    }
+  });
+  sel.removeAllRanges(); hideHlToolbar(); saveReaderHTML();
+}
+
+/* botões de IA na toolbar de grifo */
+$('#hlGenCards').addEventListener('click', () => { hideHlToolbar(); modalGerarCards(lastSelection); });
+$('#hlGenQ').addEventListener('click', () => { hideHlToolbar(); modalGerarQuestao(lastSelection); });
+
+/* ============================ 6. IA (ANTHROPIC) ============================
+   Prompts embutidos com engenharia de prompt para:
+   · Flashcards no padrão Anki (atômicos, resposta única, contextualizados)
+   · Questões inéditas com engenharia reversa do estilo da banca
+   ========================================================================== */
+
+async function callClaude(prompt, maxTokens = 4096) {
+  if (!db.settings.apiKey) throw new Error('Configure sua chave de API em Ajustes.');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': db.settings.apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: db.settings.model,
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Erro HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return data.content.map(c => c.text || '').join('');
+}
+
+/* extrai o primeiro bloco JSON válido da resposta da IA */
+function extractJSON(text) {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) text = fenced[1];
+  const start = Math.min(...['[', '{'].map(c => { const i = text.indexOf(c); return i === -1 ? Infinity : i; }));
+  if (start === Infinity) throw new Error('A IA não retornou JSON válido.');
+  const open = text[start], close = open === '[' ? ']' : '}';
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    if (text[i] === open) depth++;
+    if (text[i] === close) depth--;
+    if (depth === 0) return JSON.parse(text.slice(start, i + 1));
+  }
+  throw new Error('JSON incompleto na resposta da IA.');
+}
+
+/* contexto da matéria/tópico do texto aberto */
+function ctxAtual() {
+  const t = db.texts.find(x => x.id === readerTextId);
+  if (!t) return null;
+  return {
+    text: t,
+    materia: materiaById(t.materiaId)?.nome || 'Concursos',
+    topico: topicoNome(t.materiaId, t.topicoId) || ''
+  };
+}
+function trechoBase(trecho) {
+  if (trecho && trecho.length > 30) return trecho;
+  const el = $('#readerContent');
+  const full = el ? el.innerText : '';
+  return full.slice(0, 9000); // limite de segurança de contexto
+}
+
+/* ---------- PROMPT: flashcards padrão Anki ---------- */
+function promptFlashcards(materia, topico, trecho, qtd, fmt = 'misto') {
+  const regraFmt = {
+    basico: 'FORMATO: todos os cards do tipo pergunta→resposta.',
+    cloze: 'FORMATO: TODOS os cards devem ser de LACUNA (cloze): a frente reproduz o dispositivo/trecho com o(s) termo(s)-chave substituído(s) por "______"; o verso contém APENAS o(s) termo(s) ocultado(s). Oculte exatamente o que a banca troca: verbos de comando ("será"/"poderá"), prazos, percentuais, competências, e palavras como "salvo", "vedado", "independe". Ideal para literalidade de lei seca.',
+    misto: 'FORMATO: misture ~metade pergunta→resposta e ~metade cards de LACUNA (frente com "______" no termo-chave; verso apenas com o termo ocultado).'
+  }[fmt];
+  return `Você é um especialista em ciência da aprendizagem e no método Anki, criando flashcards para um concurseiro de alto rendimento.
+
+MATÉRIA: ${materia}
+TÓPICO: ${topico || 'geral'}
+
+${regraFmt}
+
+REGRAS OBRIGATÓRIAS (princípios de Wozniak/SuperMemo):
+1. ATOMICIDADE: cada card testa UM único fato, conceito ou distinção. Nunca combine dois fatos.
+2. RESPOSTA ÚNICA E CURTA: a frente deve admitir UMA resposta correta inequívoca; o verso deve ser o mais curto possível (ideal: 1 a 7 palavras ou uma frase curta).
+3. CONTEXTUALIZAÇÃO: inicie a frente com o contexto entre colchetes, ex: "[${materia}${topico ? ' – ' + topico : ''}] ...", para evitar interferência entre matérias.
+4. FORMULAÇÃO ATIVA: prefira perguntas diretas ("O que...", "Qual prazo...", "Quem é competente para...") ou lacunas ("... é o atributo que permite ___").
+5. SEM AMBIGUIDADE: evite "cite características" ou listas longas; se o trecho tiver uma lista importante, quebre em vários cards (um por item ou use a técnica de quantidade + item saliente).
+6. FIDELIDADE: use APENAS informações presentes no trecho. Não invente.
+7. PEGADINHAS DE PROVA: priorize exatamente o que bancas cobram: prazos, competências, exceções, palavras-chave ("salvo", "vedado", "independe"), distinções entre institutos parecidos.
+
+TRECHO DE ESTUDO:
+"""
+${trecho}
+"""
+
+Crie ${qtd} flashcards seguindo TODAS as regras.
+
+Responda APENAS com JSON válido, sem texto adicional, neste formato:
+[{"front":"...","back":"..."}]`;
+}
+
+/* ---------- PROMPT: questão inédita estilo banca ---------- */
+const BANCAS = {
+  cebraspe: {
+    nome: 'Cebraspe (Certo/Errado)',
+    estilo: `ENGENHARIA REVERSA DO ESTILO CEBRASPE:
+- Formato: itens para julgamento CERTO ou ERRADO, precedidos de um pequeno texto-comando situacional ou direto.
+- Técnicas típicas da banca que você DEVE replicar: generalização indevida (transformar regra com exceção em regra absoluta usando "sempre", "qualquer", "independentemente"); troca sutil de institutos parecidos; troca de competências/prazos; item literalmente correto da lei (para premiar quem sabe a letra da lei); inversão de causa/efeito; acréscimo de condição inexistente.
+- Linguagem: impessoal, técnica, períodos médios. Itens errados devem parecer plausíveis.
+- Gere 3 itens: ao menos 1 CERTO e 1 ERRADO.
+EXEMPLO AUTORAL DO PADRÃO (não copie o conteúdo, apenas o estilo):
+"Acerca dos atos administrativos, julgue o item: A revogação do ato administrativo, que pode ser realizada por qualquer dos Poderes no exercício de função administrativa, alcança os efeitos já produzidos pelo ato revogado." (ERRADO — a revogação opera ex nunc; a troca do efeito temporal é a pegadinha típica.)`,
+    tipo: 'CE'
+  },
+  fgv: {
+    nome: 'FGV (múltipla escolha)',
+    estilo: `ENGENHARIA REVERSA DO ESTILO FGV:
+- Formato: múltipla escolha com 5 alternativas (A-E), apenas 1 correta.
+- Técnicas típicas: enunciado contextualizado com CASO PRÁTICO (situação hipotética com nomes fictícios, órgãos, datas); exige raciocínio aplicado, não decoreba; alternativas longas e bem construídas; distratores baseados em institutos vizinhos ou em interpretações literais erradas; uso de "assinale a opção correta" ou "à luz de...".
+- Linguagem: sofisticada, narrativa, com armadilhas interpretativas.
+EXEMPLO AUTORAL DO PADRÃO (não copie o conteúdo, apenas o estilo):
+"João, servidor público federal estável, foi aprovado em novo concurso e, durante o estágio probatório do novo cargo, foi reprovado na avaliação. Nesse cenário, à luz do regime jurídico aplicável, assinale a afirmativa correta." (alternativas longas explorando recondução, vacância e exoneração.)`,
+    tipo: 'ME'
+  },
+  fcc: {
+    nome: 'FCC (múltipla escolha)',
+    estilo: `ENGENHARIA REVERSA DO ESTILO FCC:
+- Formato: múltipla escolha com 5 alternativas (A-E), apenas 1 correta.
+- Técnicas típicas: forte apego à LITERALIDADE da lei (letra de lei com pequenas alterações de palavras nos distratores); troca de prazos, percentuais e expressões legais ("será" vs "poderá ser"); enunciados mais secos e diretos que a FGV; cobranças de classificações e conceitos doutrinários clássicos.
+- Linguagem: objetiva, técnica, próxima do texto legal.
+EXEMPLO AUTORAL DO PADRÃO (não copie o conteúdo, apenas o estilo):
+"De acordo com a Lei nº 8.112/1990, a posse em cargo público ocorrerá no prazo de" (alternativas trocando 15/30 dias, "prorrogável"/"improrrogável", contado da "nomeação"/"publicação" — distratores por microvariação da letra da lei.)`,
+    tipo: 'ME'
+  },
+  vunesp: {
+    nome: 'Vunesp (múltipla escolha)',
+    estilo: `ENGENHARIA REVERSA DO ESTILO VUNESP:
+- Formato: múltipla escolha com 5 alternativas (A-E), apenas 1 correta.
+- Técnicas típicas: equilíbrio entre letra de lei e casos práticos curtos; alternativas de tamanho médio; distratores com afirmações parcialmente corretas; cobrança recorrente de exceções e ressalvas legais.
+- Linguagem: clara e direta, nível médio de complexidade.
+EXEMPLO AUTORAL DO PADRÃO (não copie o conteúdo, apenas o estilo):
+"Assinale a alternativa que corretamente discrimina hipótese em que é dispensável a licitação, nos termos da legislação vigente." (distratores misturam dispensa, inexigibilidade e casos parcialmente corretos com uma condição a mais.)`,
+    tipo: 'ME'
+  }
+};
+
+function promptQuestao(materia, topico, trecho, bancaKey) {
+  const b = BANCAS[bancaKey];
+  const formatoJSON = b.tipo === 'CE'
+    ? `{"tipo":"CE","contexto":"texto-comando introdutório (ou string vazia)","itens":[{"texto":"item a julgar","gabarito":"C ou E","comentario":"explicação detalhada: por que está certo/errado, qual a pegadinha, e o trecho/fundamento que embasa"}]}`
+    : `{"tipo":"ME","enunciado":"enunciado completo da questão","alternativas":[{"letra":"A","texto":"...","comentario":"por que está correta ou errada"},{"letra":"B","texto":"...","comentario":"..."},{"letra":"C","texto":"...","comentario":"..."},{"letra":"D","texto":"...","comentario":"..."},{"letra":"E","texto":"...","comentario":"..."}],"gabarito":"letra correta","comentario":"comentário geral da questão"}`;
+  return `Você é um elaborador de questões de concurso público de elite, ex-membro de banca examinadora.
+
+MATÉRIA: ${materia}
+TÓPICO: ${topico || 'geral'}
+
+${b.estilo}
+
+TAREFA: com base EXCLUSIVAMENTE no trecho de estudo abaixo, crie UMA questão INÉDITA que essa banca poderia aplicar em prova. A questão deve ser resolvível apenas com o conteúdo do trecho (pode exigir interpretação e aplicação, mas não conhecimento externo). Comente item por item / alternativa por alternativa, explicando a pegadinha usada.
+
+TRECHO DE ESTUDO:
+"""
+${trecho}
+"""
+
+Responda APENAS com JSON válido, sem texto adicional, neste formato:
+${formatoJSON}`;
+}
+
+/* ---------- UI: gerar flashcards ---------- */
+let _genBase = ''; // texto-base da geração atual (evita injetar texto em atributos HTML)
+function modalGerarCards(trecho) {
+  const c = ctxAtual(); if (!c) return;
+  const base = _genBase = trechoBase(trecho);
+  const origem = trecho && trecho.length > 30 ? 'trecho selecionado' : 'texto completo (início)';
+  openModal(`
+    <h3 class="font-semibold text-lg mb-1 flex items-center gap-2"><i data-lucide="zap" class="w-5 h-5 text-accent-500"></i>Gerar flashcards</h3>
+    <p class="text-xs text-ink-400 mb-4">${esc(c.materia)}${c.topico ? ' · ' + esc(c.topico) : ''} · base: ${origem}</p>
+    <div class="text-xs bg-ink-50 dark:bg-ink-850 rounded-xl p-3 max-h-28 overflow-y-auto mb-4 text-ink-500 dark:text-ink-300">${esc(base.slice(0, 600))}${base.length > 600 ? '…' : ''}</div>
+    <div class="grid grid-cols-2 gap-2 mb-4">
+      <div>
+        <label class="text-xs font-medium text-ink-400 block mb-1">Quantidade</label>
+        <select id="genQtd" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm">
+          <option>5</option><option selected>8</option><option>12</option><option>15</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-ink-400 block mb-1">Formato</label>
+        <select id="genFmt" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm">
+          <option value="misto" ${ctxAtual()?.text.kind !== 'lei' ? 'selected' : ''}>Misto</option>
+          <option value="basico">Pergunta → resposta</option>
+          <option value="cloze" ${ctxAtual()?.text.kind === 'lei' ? 'selected' : ''}>Lacunas (lei seca)</option>
+        </select>
+      </div>
+    </div>
+    <div id="genArea"></div>
+    <div class="flex justify-end gap-2">
+      <button onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-sm text-ink-400">Cancelar</button>
+      <button id="genBtn" onclick="gerarCards(_genBase)" class="px-4 py-2.5 rounded-xl bg-accent-500 text-white text-sm font-medium">⚡ Gerar</button>
+    </div>`);
+}
+let _cardsGerados = [];
+async function gerarCards(base) {
+  const c = ctxAtual();
+  const area = $('#genArea'), btn = $('#genBtn');
+  btn.disabled = true; btn.textContent = 'Gerando…';
+  area.innerHTML = `<div class="text-center py-6 text-sm text-ink-400 animate-pulse">🧠 A IA está criando seus flashcards…</div>`;
+  try {
+    const raw = await callClaude(promptFlashcards(c.materia, c.topico, base, $('#genQtd').value, $('#genFmt').value));
+    _cardsGerados = extractJSON(raw).filter(x => x.front && x.back);
+    area.innerHTML = `
+      <p class="text-xs font-medium text-ink-400 mb-2">Revise e desmarque os que não quiser:</p>
+      <div class="max-h-64 overflow-y-auto mb-3">${_cardsGerados.map((x, i) => `
+        <label class="flex gap-2.5 items-start p-3 rounded-xl bg-ink-50 dark:bg-ink-850 mb-2 cursor-pointer">
+          <input type="checkbox" checked data-ci="${i}" class="mt-1 accent-[#6c6cbb]">
+          <div class="text-sm min-w-0"><div class="font-medium">${esc(x.front)}</div><div class="text-ink-400 mt-0.5">${esc(x.back)}</div></div>
+        </label>`).join('')}</div>
+      <button onclick="salvarCards()" class="w-full py-3 rounded-xl bg-sage-500 text-white text-sm font-medium mb-2">💾 Salvar selecionados</button>`;
+    btn.style.display = 'none';
+  } catch (e) {
+    area.innerHTML = `<div class="text-sm text-blush-500 bg-blush-100 dark:bg-ink-850 rounded-xl p-3 mb-3">⚠️ ${esc(e.message)}</div>`;
+    btn.disabled = false; btn.textContent = '⚡ Tentar novamente';
+  }
+}
+function salvarCards() {
+  const c = ctxAtual();
+  let n = 0;
+  $$('#genArea input[data-ci]:checked').forEach(chk => {
+    const x = _cardsGerados[+chk.dataset.ci];
+    db.cards.push({ id: uid(), materiaId: c.text.materiaId, topicoId: c.text.topicoId, front: x.front, back: x.back, tipo: (x.front || '').includes('______') ? 'cloze' : 'basico', ef: 2.5, intervalo: 0, reps: 0, due: Date.now(), createdAt: Date.now() });
+    n++;
+  });
+  save(); closeModal(); toast(`${n} flashcard(s) salvos ✓`);
+}
+
+/* ---------- UI: gerar questão estilo banca ---------- */
+function modalGerarQuestao(trecho) {
+  const c = ctxAtual(); if (!c) return;
+  const base = _genBase = trechoBase(trecho);
+  const origem = trecho && trecho.length > 30 ? 'trecho selecionado' : 'texto completo (início)';
+  openModal(`
+    <h3 class="font-semibold text-lg mb-1 flex items-center gap-2"><i data-lucide="file-question" class="w-5 h-5 text-sage-500"></i>Gerar questão inédita</h3>
+    <p class="text-xs text-ink-400 mb-4">${esc(c.materia)}${c.topico ? ' · ' + esc(c.topico) : ''} · base: ${origem}</p>
+    <label class="text-xs font-medium text-ink-400 block mb-1">Estilo da banca</label>
+    <select id="genBanca" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm mb-4">
+      ${Object.entries(BANCAS).map(([k, b]) => `<option value="${k}">${b.nome}</option>`).join('')}
+    </select>
+    <div id="genArea"></div>
+    <div class="flex justify-end gap-2">
+      <button onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-sm text-ink-400">Cancelar</button>
+      <button id="genBtn" onclick="gerarQuestao(_genBase)" class="px-4 py-2.5 rounded-xl bg-sage-500 text-white text-sm font-medium">📝 Gerar</button>
+    </div>`);
+}
+async function gerarQuestao(base) {
+  const c = ctxAtual();
+  const area = $('#genArea'), btn = $('#genBtn');
+  const bancaKey = $('#genBanca').value;
+  btn.disabled = true; btn.textContent = 'Gerando…';
+  area.innerHTML = `<div class="text-center py-6 text-sm text-ink-400 animate-pulse">🧠 Fazendo engenharia reversa da banca…</div>`;
+  try {
+    const raw = await callClaude(promptQuestao(c.materia, c.topico, base, bancaKey));
+    const q = extractJSON(raw);
+    q.id = uid(); q.materiaId = c.text.materiaId; q.topicoId = c.text.topicoId;
+    q.banca = BANCAS[bancaKey].nome; q.trecho = base.slice(0, 1200); q.createdAt = Date.now(); q.lastResult = null;
+    db.questoes.push(q); save();
+    closeModal(); toast('Questão criada ✓');
+    showView('questoes'); abrirQuestao(q.id);
+  } catch (e) {
+    area.innerHTML = `<div class="text-sm text-blush-500 bg-blush-100 dark:bg-ink-850 rounded-xl p-3 mb-3">⚠️ ${esc(e.message)}</div>`;
+    btn.disabled = false; btn.textContent = '📝 Tentar novamente';
+  }
+}
+
+/* ============================ 7. REVISÃO ESPAÇADA (SM-2) ============================
+   Notas: Errei(0) → volta na sessão · Difícil(3) · Bom(4) · Fácil(5)
+   ef = max(1.3, ef + (0.1 - (5-q)*(0.08+(5-q)*0.02)))
+   intervalos: 1ª rev = 1 dia · 2ª = 6 dias · depois intervalo × ef
+   ==================================================================================== */
+let fila = [];        // fila da sessão atual
+let cardAtual = null;
+let revFiltro = 'all';
+
+function cardsDue(filtro) {
+  return db.cards.filter(c => c.due <= Date.now() && (filtro === 'all' || c.materiaId === filtro));
+}
+
+function renderRevisao() {
+  const due = cardsDue(revFiltro);
+  const errDue = errosDue().filter(e => revFiltro === 'all' || e.materiaId === revFiltro);
+  $('#view-revisao').innerHTML = `
+    <div class="flex items-center justify-between mb-6">
+      <div><h1 class="text-2xl font-semibold">Revisão</h1><p class="text-ink-400 text-sm">Repetição espaçada (SM-2): flashcards + questões erradas.</p></div>
+      <select onchange="revFiltro=this.value;renderRevisao()" class="px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm max-w-[45%]">
+        <option value="all" ${revFiltro==='all'?'selected':''}>Todas as matérias</option>
+        ${db.materias.map(m => `<option value="${m.id}" ${revFiltro===m.id?'selected':''}>${esc(m.nome)}</option>`).join('')}
+      </select>
+    </div>
+    <div id="revArea"></div>
+    <div id="revErrArea"></div>`;
+  const area = $('#revArea');
+  if (!db.cards.length) {
+    area.innerHTML = `<div class="text-center py-10 text-ink-400"><i data-lucide="layers" class="w-10 h-10 mx-auto mb-3 opacity-50"></i><p>Nenhum flashcard ainda.<br>Abra um texto na Biblioteca e gere cards com a IA ⚡</p></div>`;
+  } else if (!due.length) {
+    const prox = db.cards.filter(c => revFiltro === 'all' || c.materiaId === revFiltro).sort((a, b) => a.due - b.due)[0];
+    area.innerHTML = `<div class="text-center py-10 text-ink-400"><div class="text-4xl mb-3">🎉</div><p class="font-medium text-ink-600 dark:text-ink-200">Flashcards em dia!</p><p class="text-sm mt-1">${prox ? 'Próxima revisão: ' + fmtDate(prox.due) : ''}</p></div>`;
+  } else {
+    const { rev, novos } = montarFila();
+    const naFila = rev.length + novos.length;
+    area.innerHTML = `
+      <div class="text-center py-8">
+        <div class="text-5xl font-semibold text-accent-500 mb-1">${naFila}</div>
+        <p class="text-ink-400 text-sm mb-1">${rev.length} revisão(ões) + ${novos.length} novo(s)</p>
+        <p class="text-[11px] text-ink-300 dark:text-ink-500 mb-5">limites diários: ${db.settings.maxNovos} novos · ${db.settings.maxRev} revisões (Ajustes) · hoje já graduou ${dailyLog().novos} novo(s)</p>
+        ${naFila ? `<button onclick="iniciarSessao()" class="px-8 py-3.5 rounded-2xl bg-accent-500 hover:bg-accent-600 text-white font-medium">Iniciar sessão</button>`
+                 : `<p class="text-sm text-sage-500">Limite diário cumprido — os demais ficam para amanhã 💤</p>`}
+      </div>`;
+  }
+  // releituras agendadas vencidas (revisão espaçada da LEITURA: 1/7/30/60/120 dias)
+  const relDue = db.texts.filter(t => t.proxLeitura && t.proxLeitura <= Date.now() && (revFiltro === 'all' || t.materiaId === revFiltro));
+  if (relDue.length) {
+    $('#revErrArea').insertAdjacentHTML('beforebegin', `
+      <h2 class="font-semibold mb-3 mt-2 flex items-center gap-2 text-sm"><i data-lucide="book-open" class="w-4 h-4 text-butter-500"></i>Releituras agendadas (${relDue.length})</h2>
+      ${relDue.map(t => `
+        <button onclick="openReader('${t.id}')" class="w-full text-left flex items-center gap-3 bg-white dark:bg-ink-900 border border-butter-100 dark:border-ink-800 rounded-2xl p-4 mb-2.5 hover:border-butter-300">
+          <i data-lucide="${t.kind === 'lei' ? 'scale' : 'file-text'}" class="w-4 h-4 text-butter-500 shrink-0"></i>
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-medium truncate">${esc(t.titulo)}</div>
+            <div class="text-[11px] text-ink-400">${esc(materiaById(t.materiaId)?.nome || '')} · ${t.leituras}ª leitura concluída</div>
+          </div>
+        </button>`).join('')}`);
+  }
+  // questões erradas vencidas (SRS do caderno de erros)
+  if (errDue.length) {
+    $('#revErrArea').innerHTML = `
+      <h2 class="font-semibold mb-3 mt-4 flex items-center gap-2 text-sm"><i data-lucide="rotate-ccw" class="w-4 h-4 text-blush-500"></i>Questões erradas para refazer hoje (${errDue.length})</h2>
+      ${errDue.map(e => {
+        const q = db.questoes.find(x => x.id === e.qId);
+        if (!q) return '';
+        const titulo = q.tipo === 'CE' ? (q.itens?.[0]?.texto || '') : (q.enunciado || '');
+        return `
+        <button onclick="showView('questoes');abrirQuestao('${q.id}')" class="w-full text-left bg-white dark:bg-ink-900 border border-blush-100 dark:border-ink-800 rounded-2xl p-4 mb-2.5 hover:border-blush-300">
+          <div class="text-[11px] text-ink-400 mb-1">${esc(e.banca)} · ${esc(materiaById(e.materiaId)?.nome || '')} · errou: ${esc(e.detalhe)}</div>
+          <div class="text-sm line-clamp-2">${esc(titulo.slice(0, 160))}</div>
+        </button>`;
+      }).join('')}`;
+  }
+  lucide.createIcons();
+}
+
+/* limite diário: revisões primeiro (ordenadas pelo vencimento), depois cards novos até o cap */
+function dailyLog() {
+  const hoje = new Date().toDateString();
+  if (db.dailyLog.date !== hoje) db.dailyLog = { date: hoje, novos: 0 };
+  return db.dailyLog;
+}
+function montarFila() {
+  const due = cardsDue(revFiltro);
+  const rev = due.filter(c => c.reps > 0).sort((a, b) => a.due - b.due).slice(0, db.settings.maxRev);
+  const restantes = Math.max(0, db.settings.maxNovos - dailyLog().novos);
+  const novos = due.filter(c => c.reps === 0).slice(0, restantes);
+  return { rev, novos };
+}
+function iniciarSessao() {
+  const { rev, novos } = montarFila();
+  fila = [...rev.sort(() => Math.random() - .5), ...novos];
+  if (!fila.length) { toast('Limite diário atingido — descanse 💤'); renderRevisao(); return; }
+  proximoCard();
+}
+function proximoCard() {
+  if (!fila.length) {
+    $('#revArea').innerHTML = `<div class="text-center py-16"><div class="text-4xl mb-3">✅</div><p class="font-medium">Sessão concluída!</p><button onclick="renderRevisao()" class="mt-4 px-5 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 text-sm">Voltar</button></div>`;
+    return;
+  }
+  cardAtual = fila.shift();
+  $('#revArea').innerHTML = `
+    <p class="text-xs text-ink-400 text-center mb-3">${fila.length + 1} restante(s) · ${esc(materiaById(cardAtual.materiaId)?.nome || '')}</p>
+    <div class="flip-card" id="flipCard" onclick="virarCard()">
+      <div class="flip-inner min-h-[260px]">
+        <div class="flip-face bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-3xl p-8 min-h-[260px] flex items-center justify-center text-center cursor-pointer shadow-sm">
+          <div><div class="text-lg font-medium leading-relaxed">${esc(cardAtual.front)}</div><div class="text-xs text-ink-300 dark:text-ink-500 mt-6">toque para ver a resposta</div></div>
+        </div>
+        <div class="flip-back flip-face bg-accent-100 dark:bg-ink-800 border border-accent-200 dark:border-ink-700 rounded-3xl p-8 min-h-[260px] flex items-center justify-center text-center cursor-pointer">
+          <div class="text-lg leading-relaxed">${esc(cardAtual.back)}</div>
+        </div>
+      </div>
+    </div>
+    <div id="gradeBtns" class="hidden grid-cols-4 gap-2 mt-5">
+      <button onclick="pontuar(0)" class="py-3.5 rounded-2xl bg-blush-100 dark:bg-ink-800 text-blush-500 font-medium text-sm">Errei<br><span class="text-[10px] opacity-70">agora</span></button>
+      <button onclick="pontuar(3)" class="py-3.5 rounded-2xl bg-butter-100 dark:bg-ink-800 text-butter-500 font-medium text-sm">Difícil<br><span class="text-[10px] opacity-70" id="ivl3"></span></button>
+      <button onclick="pontuar(4)" class="py-3.5 rounded-2xl bg-ink-100 dark:bg-ink-800 text-accent-500 font-medium text-sm">Bom<br><span class="text-[10px] opacity-70" id="ivl4"></span></button>
+      <button onclick="pontuar(5)" class="py-3.5 rounded-2xl bg-sage-100 dark:bg-ink-800 text-sage-500 font-medium text-sm">Fácil<br><span class="text-[10px] opacity-70" id="ivl5"></span></button>
+    </div>`;
+  // mostra previsão de intervalo em cada botão
+  [3, 4, 5].forEach(q => { const el = () => $('#ivl' + q); const d = previewIntervalo(cardAtual, q); if (el()) el().textContent = d + 'd'; });
+}
+function virarCard() {
+  $('#flipCard').classList.toggle('flipped');
+  const g = $('#gradeBtns');
+  g.classList.remove('hidden'); g.classList.add('grid');
+}
+function sm2(card, q) {
+  if (q < 3) { card.reps = 0; card.intervalo = 0; card.due = Date.now(); return; }
+  card.ef = Math.max(1.3, card.ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)));
+  card.reps++;
+  if (card.reps === 1) card.intervalo = 1;
+  else if (card.reps === 2) card.intervalo = 6;
+  else card.intervalo = Math.round(card.intervalo * card.ef);
+  if (q === 3) card.intervalo = Math.max(1, Math.round(card.intervalo * 0.8)); // difícil encurta
+  card.due = Date.now() + card.intervalo * 864e5;
+}
+function previewIntervalo(card, q) {
+  const c = { ...card }; sm2(c, q); return c.intervalo;
+}
+function pontuar(q) {
+  const eraNovo = cardAtual.reps === 0;
+  sm2(cardAtual, q);
+  if (q < 3) fila.push(cardAtual); // errou: volta na própria sessão
+  else if (eraNovo) dailyLog().novos++; // card novo "graduou" → conta no limite diário
+  save(); proximoCard();
+}
+
+/* ============================ 8. QUESTÕES ============================ */
+let qf = { mat: 'all', top: 'all', status: 'all' };
+function renderQuestoes() {
+  const qs = [...db.questoes].sort((a, b) => b.createdAt - a.createdAt).filter(q =>
+    (qf.mat === 'all' || q.materiaId === qf.mat) &&
+    (qf.top === 'all' || q.topicoId === qf.top) &&
+    (qf.status === 'all' || (qf.status === 'nao' && q.lastResult === null) || (qf.status === 'certa' && q.lastResult === true) || (qf.status === 'errada' && q.lastResult === false))
+  );
+  const matSel = qf.mat !== 'all' ? materiaById(qf.mat) : null;
+  $('#view-questoes').innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <div><h1 class="text-2xl font-semibold">Questões</h1><p class="text-ink-400 text-sm">Banco: inéditas da IA + importadas.</p></div>
+      <button onclick="modalImportarQuestoes()" class="px-3.5 py-2.5 rounded-xl bg-accent-500 text-white text-sm font-medium flex items-center gap-1.5"><i data-lucide="clipboard-paste" class="w-4 h-4"></i><span class="hidden sm:inline">Importar em lote</span></button>
+    </div>
+    <div class="flex flex-wrap gap-2 mb-4">
+      <select onchange="qf.mat=this.value;qf.top='all';renderQuestoes()" class="px-3 py-2 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-xs">
+        <option value="all">Todas as matérias</option>
+        ${db.materias.map(m => `<option value="${m.id}" ${qf.mat===m.id?'selected':''}>${esc(m.nome)}</option>`).join('')}
+      </select>
+      ${matSel ? `<select onchange="qf.top=this.value;renderQuestoes()" class="px-3 py-2 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-xs">
+        <option value="all">Todos os tópicos</option>
+        ${matSel.topicos.map(t => `<option value="${t.id}" ${qf.top===t.id?'selected':''}>${esc(t.nome)}</option>`).join('')}
+      </select>` : ''}
+      <select onchange="qf.status=this.value;renderQuestoes()" class="px-3 py-2 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-xs">
+        <option value="all" ${qf.status==='all'?'selected':''}>Todas</option>
+        <option value="nao" ${qf.status==='nao'?'selected':''}>Não respondidas</option>
+        <option value="errada" ${qf.status==='errada'?'selected':''}>Erradas</option>
+        <option value="certa" ${qf.status==='certa'?'selected':''}>Certas</option>
+      </select>
+      <span class="text-xs text-ink-400 self-center ml-auto">${qs.length} questão(ões)</span>
+    </div>
+    <p class="text-xs text-ink-400 mb-4 bg-ink-100 dark:bg-ink-900 rounded-xl px-4 py-3">💡 Gere inéditas no leitor (📝) ou cole questões de prova reais em <b>Importar em lote</b> — a IA estrutura tudo automaticamente.</p>
+    ${qs.map(q => {
+      const st = q.lastResult === null ? ['circle-dashed', 'text-ink-300', 'não respondida'] : q.lastResult ? ['check-circle-2', 'text-sage-500', 'acertou'] : ['x-circle', 'text-blush-500', 'errou'];
+      const titulo = q.tipo === 'CE' ? (q.itens?.[0]?.texto || '') : (q.enunciado || '');
+      return `
+      <button onclick="abrirQuestao('${q.id}')" class="w-full text-left bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-4 mb-3 hover:border-accent-300 transition group">
+        <div class="flex items-center gap-2 text-[11px] text-ink-400 mb-1.5">
+          <i data-lucide="${st[0]}" class="w-3.5 h-3.5 ${st[1]}"></i>${st[2]} · ${esc(q.banca)} · ${esc(materiaById(q.materiaId)?.nome || '')} · ${fmtDate(q.createdAt)}
+          <i data-lucide="trash-2" onclick="event.stopPropagation();delQuestao('${q.id}')" class="w-3.5 h-3.5 ml-auto opacity-0 group-hover:opacity-100 hover:text-blush-500"></i>
+        </div>
+        <div class="text-sm line-clamp-2">${esc(titulo.slice(0, 180))}</div>
+      </button>`;
+    }).join('') || `<div class="text-center py-16 text-ink-400"><i data-lucide="list-checks" class="w-10 h-10 mx-auto mb-3 opacity-50"></i><p>Nenhuma questão gerada ainda.</p></div>`}`;
+  lucide.createIcons();
+}
+function delQuestao(id) {
+  if (!confirm('Excluir esta questão?')) return;
+  db.questoes = db.questoes.filter(q => q.id !== id);
+  save(); renderQuestoes();
+}
+
+/* ---------- responder questão ---------- */
+let respostas = {};  // CE: {idx:'C'|'E'} · ME: {alt:'A'}
+
+function abrirQuestao(qId, container = '#view-questoes') {
+  const q = db.questoes.find(x => x.id === qId);
+  if (!q) { toast('Questão não encontrada'); return; }
+  respostas = {};
+  const header = `
+    <button onclick="${container === '#view-questoes' ? `showView('questoes')` : `renderErros()`}" class="flex items-center gap-1.5 text-sm text-ink-400 mb-4"><i data-lucide="arrow-left" class="w-4 h-4"></i>Voltar</button>
+    <div class="flex items-center gap-2 text-xs text-ink-400 mb-4">
+      <span class="px-2.5 py-1 rounded-full bg-accent-100 dark:bg-ink-800 text-accent-600 dark:text-accent-300 font-medium">${esc(q.banca)}</span>
+      <span>${esc(materiaById(q.materiaId)?.nome || '')}</span>
+    </div>`;
+  let corpo = '';
+  if (q.tipo === 'CE') {
+    corpo = `
+      ${q.contexto ? `<p class="text-sm leading-relaxed mb-5 bg-ink-50 dark:bg-ink-900 rounded-xl p-4">${esc(q.contexto)}</p>` : ''}
+      <p class="text-xs font-medium text-ink-400 mb-3">Julgue os itens a seguir:</p>
+      ${q.itens.map((it, i) => `
+        <div class="bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-4 mb-3" id="item${i}">
+          <p class="text-sm leading-relaxed mb-3">${i + 1}. ${esc(it.texto)}</p>
+          <div class="flex gap-2">
+            <button onclick="marcarCE(${i},'C',this)" class="ce-btn flex-1 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 text-sm font-medium">✓ Certo</button>
+            <button onclick="marcarCE(${i},'E',this)" class="ce-btn flex-1 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 text-sm font-medium">✗ Errado</button>
+          </div>
+          <div class="cmt hidden mt-3 text-xs leading-relaxed rounded-xl p-3"></div>
+        </div>`).join('')}`;
+  } else {
+    corpo = `
+      <p class="text-sm leading-relaxed mb-5 bg-ink-50 dark:bg-ink-900 rounded-xl p-4">${esc(q.enunciado)}</p>
+      ${q.alternativas.map(a => `
+        <button onclick="marcarME('${a.letra}',this)" class="me-btn w-full text-left flex gap-3 items-start bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 rounded-2xl p-4 mb-2.5 text-sm" data-letra="${a.letra}">
+          <span class="font-semibold shrink-0">${a.letra})</span><span class="flex-1">${esc(a.texto)}</span>
+        </button>
+        <div class="cmt-${a.letra} hidden mb-2.5 -mt-1 text-xs leading-relaxed rounded-xl p-3 mx-2"></div>`).join('')}`;
+  }
+  $(container).innerHTML = `${header}${corpo}
+    <button id="btnCorrigir" onclick="corrigir('${q.id}','${container === '#view-questoes' ? 'q' : 'e'}')" class="w-full py-3.5 rounded-2xl bg-accent-500 hover:bg-accent-600 text-white font-medium mt-3">Corrigir</button>
+    <div id="qResultado"></div>`;
+  lucide.createIcons();
+  window.scrollTo(0, 0); $('#viewsWrap').scrollTo(0, 0);
+}
+function marcarCE(i, v, btn) {
+  respostas[i] = v;
+  [...btn.parentElement.children].forEach(b => b.classList.remove('bg-accent-500', 'text-white', 'border-accent-500'));
+  btn.classList.add('bg-accent-500', 'text-white', 'border-accent-500');
+}
+function marcarME(letra, btn) {
+  respostas.alt = letra;
+  $$('.me-btn').forEach(b => b.classList.remove('border-accent-500', 'ring-2', 'ring-accent-300'));
+  btn.classList.add('border-accent-500', 'ring-2', 'ring-accent-300');
+}
+
+function corrigir(qId, origem) {
+  const q = db.questoes.find(x => x.id === qId);
+  let erros = [], acertos = 0, total = 0;
+
+  if (q.tipo === 'CE') {
+    if (Object.keys(respostas).length < q.itens.length) { toast('Julgue todos os itens'); return; }
+    q.itens.forEach((it, i) => {
+      total++;
+      const ok = respostas[i] === it.gabarito;
+      if (ok) acertos++; else erros.push(`Item ${i + 1}`);
+      db.answers.push({ materiaId: q.materiaId, topicoId: q.topicoId, correct: ok, ts: Date.now() });
+      const box = $(`#item${i}`), cmt = box.querySelector('.cmt');
+      box.classList.add(ok ? 'border-sage-300' : 'border-blush-300');
+      cmt.classList.remove('hidden');
+      cmt.className = `cmt mt-3 text-xs leading-relaxed rounded-xl p-3 ${ok ? 'bg-sage-100 dark:bg-ink-850 text-sage-500 dark:text-sage-300' : 'bg-blush-100 dark:bg-ink-850 text-blush-500 dark:text-blush-300'}`;
+      cmt.innerHTML = `<b>Gabarito: ${it.gabarito === 'C' ? 'CERTO' : 'ERRADO'} ${ok ? '· você acertou ✓' : '· você errou ✗'}</b><br>${esc(it.comentario)}`;
+      box.querySelectorAll('.ce-btn').forEach(b => b.disabled = true);
+    });
+  } else {
+    if (!respostas.alt) { toast('Escolha uma alternativa'); return; }
+    total = 1;
+    const ok = respostas.alt === q.gabarito;
+    if (ok) acertos = 1; else erros.push(`Alternativa ${respostas.alt} (correta: ${q.gabarito})`);
+    db.answers.push({ materiaId: q.materiaId, topicoId: q.topicoId, correct: ok, ts: Date.now() });
+    q.alternativas.forEach(a => {
+      const btn = $(`.me-btn[data-letra="${a.letra}"]`), cmt = $(`.cmt-${a.letra}`);
+      const isGab = a.letra === q.gabarito, marcada = a.letra === respostas.alt;
+      if (isGab) btn.classList.add('border-sage-300', 'bg-sage-100', 'dark:bg-ink-850');
+      else if (marcada) btn.classList.add('border-blush-300', 'bg-blush-100', 'dark:bg-ink-850');
+      cmt.classList.remove('hidden');
+      cmt.className = `cmt-${a.letra} mb-2.5 -mt-1 text-xs leading-relaxed rounded-xl p-3 mx-2 ${isGab ? 'bg-sage-100 dark:bg-ink-850 text-sage-500 dark:text-sage-300' : 'bg-ink-50 dark:bg-ink-900 text-ink-400'}`;
+      cmt.innerHTML = `${isGab ? '<b>✓ GABARITO</b> · ' : ''}${esc(a.comentario || '')}`;
+      btn.disabled = true;
+    });
+  }
+
+  q.lastResult = erros.length === 0;
+
+  // caderno de erros com repetição espaçada:
+  // errou → entra/volta no SRS (revisão amanhã); acertou de novo → intervalo cresce; dominou (≥21d) → sai do caderno
+  if (erros.length) registrarErro(q, erros.join(', '));
+  else marcarAcertoErro(q);
+  save();
+  $('#btnCorrigir').style.display = 'none';
+  $('#qResultado').innerHTML = `
+    <div class="mt-4 rounded-2xl p-5 text-center ${erros.length ? 'bg-blush-100 dark:bg-ink-900' : 'bg-sage-100 dark:bg-ink-900'}">
+      <div class="text-2xl mb-1">${erros.length ? '😬' : '🎯'}</div>
+      <p class="font-medium ${erros.length ? 'text-blush-500' : 'text-sage-500'}">${acertos}/${total} acerto(s)</p>
+      ${erros.length ? `<p class="text-xs text-ink-400 mt-1">Registrado no caderno de erros para refazer depois.</p>` : ''}
+      ${q.comentario ? `<p class="text-xs text-ink-500 dark:text-ink-300 mt-3 text-left leading-relaxed"><b>Comentário geral:</b> ${esc(q.comentario)}</p>` : ''}
+    </div>`;
+}
+
+/* ============================ 9. CADERNO DE ERROS ============================ */
+function renderErros() {
+  $$('.view').forEach(v => v.classList.remove('active'));
+  $('#view-erros').classList.add('active');
+  currentView = 'erros'; renderNav();
+  const errs = [...db.errors].sort((a, b) => b.ts - a.ts);
+  $('#view-erros').innerHTML = `
+    <div class="flex items-center justify-between mb-6">
+      <div><h1 class="text-2xl font-semibold">Caderno de Erros</h1><p class="text-ink-400 text-sm">Tudo que você errou, para refazer até acertar.</p></div>
+      ${errs.length ? `<button onclick="limparErros()" class="text-xs text-ink-400 hover:text-blush-500">limpar tudo</button>` : ''}
+    </div>
+    ${errs.map(e => {
+      const q = db.questoes.find(x => x.id === e.qId);
+      return `
+      <div class="bg-white dark:bg-ink-900 border border-blush-100 dark:border-ink-800 rounded-2xl p-4 mb-3">
+        <div class="flex items-center gap-2 text-[11px] text-ink-400 mb-2">
+          <i data-lucide="x-circle" class="w-3.5 h-3.5 text-blush-500"></i>${esc(e.banca)} · ${esc(materiaById(e.materiaId)?.nome || 'matéria excluída')} · ${fmtDate(e.ts)}
+          <button onclick="delErro('${e.id}')" class="ml-auto text-ink-300 hover:text-blush-500"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+        </div>
+        <p class="text-sm mb-1">Errou: <b>${esc(e.detalhe)}</b></p>
+        <p class="text-[11px] ${(e.due||0) <= Date.now() ? 'text-blush-500 font-medium' : 'text-ink-400'}">${(e.due||0) <= Date.now() ? '⏰ revisão pendente — refaça hoje' : '📅 próxima revisão: ' + fmtDate(e.due) + ' (intervalo ' + (e.intervalo||1) + 'd)'}</p>
+        <div class="flex gap-2 mt-3">
+          ${q ? `<button onclick="abrirQuestao('${q.id}','#view-erros')" class="px-3.5 py-2 rounded-xl bg-accent-500 text-white text-xs font-medium">↻ Refazer questão</button>` : '<span class="text-xs text-ink-300">questão excluída</span>'}
+          ${e.trecho ? `<button onclick="toggleTrecho(this)" class="px-3.5 py-2 rounded-xl border border-ink-200 dark:border-ink-700 text-xs">📖 Ver trecho original</button>` : ''}
+        </div>
+        ${e.trecho ? `<div class="trecho hidden mt-3 text-xs leading-relaxed bg-ink-50 dark:bg-ink-850 rounded-xl p-3 text-ink-500 dark:text-ink-300">${esc(e.trecho)}</div>` : ''}
+      </div>`;
+    }).join('') || `<div class="text-center py-16 text-ink-400"><div class="text-4xl mb-3">🌟</div><p>Nenhum erro registrado.<br>Continue assim!</p></div>`}`;
+  lucide.createIcons();
+}
+function toggleTrecho(btn) { btn.closest('div').parentElement.querySelector('.trecho').classList.toggle('hidden'); }
+function delErro(id) { db.errors = db.errors.filter(e => e.id !== id); save(); renderErros(); }
+function limparErros() { if (confirm('Limpar todo o caderno de erros?')) { db.errors = []; save(); renderErros(); } }
+
+/* ============================ 10. CONFIGURAÇÕES ============================ */
+function renderConfig() {
+  $('#view-config').innerHTML = `
+    <h1 class="text-2xl font-semibold mb-1">Ajustes</h1>
+    <p class="text-ink-400 text-sm mb-6">Configuração da IA e dos seus dados.</p>
+
+    <div class="bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-5 mb-4">
+      <h2 class="font-semibold mb-1 flex items-center gap-2"><i data-lucide="key-round" class="w-4 h-4 text-accent-500"></i>API da Anthropic (Claude)</h2>
+      <p class="text-xs text-ink-400 mb-4">Sua chave fica salva apenas neste dispositivo (LocalStorage). Crie em <b>console.anthropic.com</b>.</p>
+      <label class="text-xs font-medium text-ink-400 block mb-1">Chave de API</label>
+      <div class="flex gap-2 mb-3">
+        <input id="cfgKey" type="password" value="${esc(db.settings.apiKey)}" placeholder="sk-ant-…" class="flex-1 px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent text-sm">
+        <button onclick="const i=$('#cfgKey');i.type=i.type==='password'?'text':'password'" class="px-3 rounded-xl border border-ink-200 dark:border-ink-700"><i data-lucide="eye" class="w-4 h-4"></i></button>
+      </div>
+      <label class="text-xs font-medium text-ink-400 block mb-1">Modelo</label>
+      <select id="cfgModel" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm mb-4">
+        ${['claude-sonnet-4-5', 'claude-haiku-4-5', 'claude-opus-4-1'].map(m => `<option ${db.settings.model === m ? 'selected' : ''}>${m}</option>`).join('')}
+      </select>
+      <div class="flex gap-2">
+        <button onclick="salvarConfig()" class="flex-1 py-2.5 rounded-xl bg-accent-500 text-white text-sm font-medium">Salvar</button>
+        <button onclick="testarAPI()" id="btnTest" class="px-4 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 text-sm">Testar conexão</button>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-5 mb-4">
+      <h2 class="font-semibold mb-3 flex items-center gap-2"><i data-lucide="database" class="w-4 h-4 text-sage-500"></i>Backup dos dados</h2>
+      <div class="flex gap-2">
+        <button onclick="exportarDados()" class="flex-1 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 text-sm flex items-center justify-center gap-1.5"><i data-lucide="download" class="w-4 h-4"></i>Exportar JSON</button>
+        <label class="flex-1 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 text-sm flex items-center justify-center gap-1.5 cursor-pointer"><i data-lucide="upload" class="w-4 h-4"></i>Importar<input type="file" accept=".json" class="hidden" onchange="importarDados(this)"></label>
+      </div>
+      <button onclick="exportarAnki()" class="w-full mt-2 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 text-sm flex items-center justify-center gap-1.5"><i data-lucide="package" class="w-4 h-4"></i>Exportar flashcards para o Anki (TSV)</button>
+      <label class="flex items-center gap-2 text-sm mt-4 cursor-pointer">
+        <input type="checkbox" ${db.settings.autoBackup ? 'checked' : ''} onchange="db.settings.autoBackup=this.checked;save()" class="accent-[#6c6cbb]">
+        Backup automático semanal (baixa um JSON ao abrir o app)
+      </label>
+      <p class="text-xs text-ink-400 mt-1.5">Último backup: ${db.settings.lastBackup ? fmtDate(db.settings.lastBackup) : 'nunca'} · No iPad, salve o arquivo baixado no <b>iCloud Drive</b> para sincronizar entre dispositivos (importe-o no outro aparelho).</p>
+      <p class="text-xs mt-2 ${lastSaveOk ? 'text-sage-500' : 'text-blush-500'}">${lastSaveOk ? '✓ Gravações no IndexedDB confirmadas' : '⚠️ Última gravação FALHOU — exporte backup já!'} · <span id="stUso">calculando armazenamento…</span></p>
+    </div>
+
+    <div class="bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-5 mb-4">
+      <h2 class="font-semibold mb-3 flex items-center gap-2"><i data-lucide="sliders-horizontal" class="w-4 h-4 text-accent-500"></i>Revisão e metas</h2>
+      <div class="grid grid-cols-3 gap-2">
+        <div><label class="text-xs text-ink-400 block mb-1">Cards novos/dia</label><input type="number" min="1" max="100" value="${db.settings.maxNovos}" onchange="db.settings.maxNovos=Math.max(1,+this.value||20);save()" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent text-sm"></div>
+        <div><label class="text-xs text-ink-400 block mb-1">Revisões/dia</label><input type="number" min="10" max="500" value="${db.settings.maxRev}" onchange="db.settings.maxRev=Math.max(10,+this.value||100);save()" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent text-sm"></div>
+        <div><label class="text-xs text-ink-400 block mb-1">Meta diária (min)</label><input type="number" min="15" max="720" value="${db.settings.metaDiaria}" onchange="db.settings.metaDiaria=Math.max(15,+this.value||120);save()" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent text-sm"></div>
+      </div>
+      <p class="text-[11px] text-ink-400 mt-2">O limite de cards novos evita avalanche de revisões futuras; a meta diária alimenta a barra e o 🔥 do Painel.</p>
+    </div>
+
+    <div class="bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-5 mb-4">
+      <h2 class="font-semibold mb-3 flex items-center gap-2"><i data-lucide="alarm-clock" class="w-4 h-4 text-butter-500"></i>Pomodoro</h2>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="text-xs text-ink-400 block mb-1">Foco (min)</label><input type="number" min="5" max="90" value="${db.settings.foco}" onchange="db.settings.foco=Math.max(5,+this.value||25);save()" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent text-sm"></div>
+        <div><label class="text-xs text-ink-400 block mb-1">Pausa (min)</label><input type="number" min="1" max="30" value="${db.settings.pausa}" onchange="db.settings.pausa=Math.max(1,+this.value||5);save()" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent text-sm"></div>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-ink-900 border border-blush-100 dark:border-ink-800 rounded-2xl p-5">
+      <h2 class="font-semibold mb-3 flex items-center gap-2 text-blush-500"><i data-lucide="alert-triangle" class="w-4 h-4"></i>Zona de perigo</h2>
+      <button onclick="resetarTudo()" class="py-2.5 px-4 rounded-xl bg-blush-100 dark:bg-ink-850 text-blush-500 text-sm font-medium">Apagar todos os dados</button>
+    </div>`;
+  lucide.createIcons();
+  // medidor de uso de armazenamento (IndexedDB)
+  navigator.storage?.estimate?.().then(e => {
+    const el = $('#stUso');
+    if (el) el.textContent = `uso: ${((e.usage || 0) / 1048576).toFixed(1)} MB de ${((e.quota || 0) / 1048576 / 1024).toFixed(1)} GB disponíveis`;
+  }).catch(() => {});
+}
+function salvarConfig() {
+  db.settings.apiKey = $('#cfgKey').value.trim();
+  db.settings.model = $('#cfgModel').value;
+  save(); toast('Configurações salvas ✓');
+}
+async function testarAPI() {
+  salvarConfig();
+  const b = $('#btnTest'); b.textContent = 'Testando…'; b.disabled = true;
+  try { await callClaude('Responda apenas: ok', 10); toast('✅ Conexão funcionando!'); }
+  catch (e) { toast('❌ ' + e.message, 4000); }
+  b.textContent = 'Testar conexão'; b.disabled = false;
+}
+function exportarDados() {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `aprovaplus-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+}
+function importarDados(input) {
+  const f = input.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (!d.materias) throw new Error('arquivo inválido');
+      db = mergeDB(d); flushSave(); applyTheme(); showView('dashboard'); toast('Backup restaurado ✓');
+    } catch (e) { toast('Arquivo de backup inválido'); }
+  };
+  r.readAsText(f);
+}
+function resetarTudo() {
+  if (!confirm('Apagar TODOS os dados (matérias, textos, cards, questões)? Esta ação é irreversível.')) return;
+  if (!confirm('Tem certeza absoluta?')) return;
+  db = defaultDB(); save(); applyTheme(); showView('dashboard');
+}
+
+/* ============================ 11. SRS DO CADERNO DE ERROS ============================
+   Questão errada entra na repetição espaçada: volta em 1 dia; a cada acerto o
+   intervalo cresce (SM-2); com intervalo ≥ 21 dias é considerada dominada e sai.
+   ===================================================================================== */
+function errosDue() { return db.errors.filter(e => (e.due || 0) <= Date.now()); }
+
+function srsErro(e, ok) {
+  if (ok) { sm2(e, 4); }
+  else { e.reps = 0; e.ef = Math.max(1.3, (e.ef || 2.5) - 0.2); e.intervalo = 1; e.due = Date.now() + 864e5; }
+}
+function registrarErro(q, detalhe) {
+  const ex = db.errors.find(e => e.qId === q.id);
+  if (ex) { ex.detalhe = detalhe; ex.ts = Date.now(); srsErro(ex, false); }
+  else db.errors.push({ id: uid(), qId: q.id, materiaId: q.materiaId, banca: q.banca, detalhe, trecho: q.trecho, ts: Date.now(), ef: 2.5, intervalo: 1, reps: 0, due: Date.now() + 864e5 });
+}
+function marcarAcertoErro(q) {
+  const ex = db.errors.find(e => e.qId === q.id);
+  if (!ex) return;
+  srsErro(ex, true);
+  if (ex.intervalo >= 21) {
+    db.errors = db.errors.filter(e => e.id !== ex.id);
+    setTimeout(() => toast('🏆 Questão dominada — saiu do caderno de erros'), 800);
+  }
+}
+
+/* ============================ 12. CICLO DE ESTUDOS ============================
+   Aloca as horas semanais por: peso no edital × (2 − taxa de acerto).
+   Matéria com peso alto e desempenho ruim recebe mais horas.
+   ============================================================================== */
+function inicioSemana(ts = Date.now()) {
+  const d = new Date(ts); d.setHours(0, 0, 0, 0);
+  return d.getTime() - ((d.getDay() + 6) % 7) * 864e5; // segunda-feira 00:00
+}
+function horasEstudadasSemana() { // minutos por matéria na semana corrente
+  const ws = inicioSemana(), map = {};
+  db.sessions.filter(s => s.ts >= ws).forEach(s => map[s.materiaId] = (map[s.materiaId] || 0) + s.min);
+  return map;
+}
+function metaSemanal() {
+  if (!db.materias.length) return [];
+  const accMap = statsPorMateria(), week = horasEstudadasSemana();
+  const itens = db.materias.map(m => {
+    const peso = +db.edital.pesos[m.id] || 3;
+    const s = accMap[m.id];
+    const acc = (s && s.total >= 5) ? s.certas / s.total : 0.5;
+    return { m, peso, acc, score: peso * (2 - acc) };
+  });
+  const tot = itens.reduce((a, b) => a + b.score, 0) || 1;
+  return itens.map(x => ({
+    materiaId: x.m.id, nome: x.m.nome, peso: x.peso, acc: x.acc,
+    meta: db.edital.horasSemana * x.score / tot,
+    estudado: (week[x.m.id] || 0) / 60
+  }));
+}
+function recomendacao() {
+  const lst = metaSemanal();
+  if (!lst.length) return null;
+  return lst.map(x => ({ ...x, deficit: x.meta - x.estudado })).sort((a, b) => b.deficit - a.deficit)[0];
+}
+function setPeso(mId, v) { db.edital.pesos[mId] = +v; save(); renderCiclo(); }
+
+function renderCiclo() {
+  if (!db.materias.length) {
+    $('#view-ciclo').innerHTML = `<div class="text-center py-16 text-ink-400"><i data-lucide="calendar-range" class="w-10 h-10 mx-auto mb-3 opacity-50"></i><p>Crie suas matérias na Biblioteca para montar o ciclo.</p></div>`;
+    lucide.createIcons(); return;
+  }
+  const lst = metaSemanal();
+  const rec = recomendacao();
+  const ultimas = [...db.sessions].sort((a, b) => b.ts - a.ts).slice(0, 6);
+  $('#view-ciclo').innerHTML = `
+    <h1 class="text-2xl font-semibold mb-1">Ciclo de estudos</h1>
+    <p class="text-ink-400 text-sm mb-6">Defina o peso de cada matéria no seu edital — o app distribui suas horas pela importância × seu desempenho.</p>
+
+    <div class="bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-5 mb-4 flex items-center gap-x-5 gap-y-3 flex-wrap">
+      <label class="text-sm font-medium flex items-center gap-2">Horas/semana:
+        <input type="number" min="1" max="80" value="${db.edital.horasSemana}" onchange="db.edital.horasSemana=Math.max(1,+this.value||20);save();renderCiclo()" class="w-20 px-3 py-2 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent text-sm">
+      </label>
+      <label class="text-sm font-medium flex items-center gap-2">📅 Data da prova:
+        <input type="date" value="${esc(db.edital.dataProva)}" onchange="db.edital.dataProva=this.value;save();renderCiclo()" class="px-3 py-2 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent text-sm">
+      </label>
+      ${rec && rec.deficit > 0.05 ? `<button onclick="modalTimer('${rec.materiaId}')" class="ml-auto px-4 py-2.5 rounded-xl bg-accent-500 text-white text-sm font-medium">▶ Estudar agora: ${esc(rec.nome)}</button>` : ''}
+    </div>
+
+    ${(() => {
+      const cob = cobertura();
+      if (!cob.tot) return `<p class="text-xs text-ink-400 mb-4 bg-ink-100 dark:bg-ink-900 rounded-xl px-4 py-3">💡 Cadastre os <b>tópicos do edital</b> em cada matéria (Biblioteca → 🏷) para o app medir a cobertura e apontar buracos cegos.</p>`;
+      return `
+      <div class="bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-5 mb-4">
+        <div class="flex justify-between items-center mb-2">
+          <h2 class="font-semibold text-sm flex items-center gap-2"><i data-lucide="map" class="w-4 h-4 text-accent-500"></i>Cobertura do edital</h2>
+          <span class="text-sm font-semibold ${cob.pct >= 80 ? 'text-sage-500' : cob.pct >= 50 ? 'text-butter-500' : 'text-blush-500'}">${cob.ok}/${cob.tot} tópicos · ${cob.pct}%</span>
+        </div>
+        <div class="h-2.5 rounded-full bg-ink-100 dark:bg-ink-800 overflow-hidden mb-3">
+          <div class="h-full rounded-full ${cob.pct >= 80 ? 'bg-sage-500' : 'bg-accent-400'}" style="width:${cob.pct}%"></div>
+        </div>
+        <p class="text-[11px] text-ink-400 mb-2">Tópico coberto = tem material + flashcards + questões. Buracos cegos:</p>
+        ${cob.buracos.slice(0, 12).map(b => `
+          <div class="flex items-center gap-2 py-1.5 border-b border-ink-50 dark:border-ink-850 last:border-0 text-xs flex-wrap">
+            <span class="font-medium min-w-0">${esc(b.materia)} · ${esc(b.topico)}</span>
+            <span class="ml-auto flex gap-1">
+              ${!b.temTexto ? '<span class="px-2 py-0.5 rounded-full bg-blush-100 dark:bg-ink-850 text-blush-500">sem material</span>' : ''}
+              ${!b.temCard ? '<span class="px-2 py-0.5 rounded-full bg-butter-100 dark:bg-ink-850 text-butter-500">sem cards</span>' : ''}
+              ${!b.temQ ? '<span class="px-2 py-0.5 rounded-full bg-accent-100 dark:bg-ink-850 text-accent-500">sem questões</span>' : ''}
+            </span>
+          </div>`).join('') || '<p class="text-xs text-sage-500">🎉 Nenhum buraco — edital 100% coberto!</p>'}
+        ${cob.buracos.length > 12 ? `<p class="text-[11px] text-ink-400 mt-2">… e mais ${cob.buracos.length - 12} tópico(s) descoberto(s).</p>` : ''}
+      </div>`;
+    })()}
+
+    ${lst.map(x => {
+      const pct = Math.min(100, Math.round(x.estudado / (x.meta || 1) * 100));
+      return `
+      <div class="bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-4 mb-3">
+        <div class="flex items-center gap-3 flex-wrap mb-2">
+          <span class="font-medium text-sm flex-1 min-w-[140px]">${esc(x.nome)}</span>
+          <label class="text-[11px] text-ink-400">peso no edital
+            <select onchange="setPeso('${x.materiaId}',this.value)" class="ml-1 px-2 py-1 rounded-lg border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-xs">
+              ${[1,2,3,4,5].map(p => `<option ${x.peso===p?'selected':''}>${p}</option>`).join('')}
+            </select>
+          </label>
+          <button onclick="modalTimer('${x.materiaId}')" class="px-3 py-1.5 rounded-lg bg-accent-100 dark:bg-ink-800 text-accent-600 dark:text-accent-300 text-xs font-medium">▶ estudar</button>
+        </div>
+        <div class="flex justify-between text-[11px] text-ink-400 mb-1">
+          <span>${x.estudado.toFixed(1)}h de ${x.meta.toFixed(1)}h esta semana</span>
+          <span>acerto: ${Math.round(x.acc * 100)}%</span>
+        </div>
+        <div class="h-2.5 rounded-full bg-ink-100 dark:bg-ink-800 overflow-hidden">
+          <div class="h-full rounded-full ${pct >= 100 ? 'bg-sage-500' : 'bg-accent-400'}" style="width:${pct}%"></div>
+        </div>
+      </div>`;
+    }).join('')}
+
+    ${ultimas.length ? `
+    <h2 class="font-semibold mt-6 mb-3 text-sm flex items-center gap-2"><i data-lucide="history" class="w-4 h-4 text-ink-400"></i>Últimas sessões</h2>
+    <div class="bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-4">
+      ${ultimas.map(s => `<div class="flex justify-between text-sm py-1.5 border-b border-ink-50 dark:border-ink-850 last:border-0"><span>${esc(materiaById(s.materiaId)?.nome || '?')}</span><span class="text-ink-400">${s.min} min · ${fmtDate(s.ts)}</span></div>`).join('')}
+    </div>` : ''}`;
+  lucide.createIcons();
+}
+
+/* ============================ 13. CRONÔMETRO / POMODORO ============================ */
+const TIMER_KEY = 'aprovaplus_timer';
+let timerInt = null;
+
+function timerState() { try { return JSON.parse(localStorage.getItem(TIMER_KEY)); } catch (e) { return null; } }
+function setTimerState(s) { s ? localStorage.setItem(TIMER_KEY, JSON.stringify(s)) : localStorage.removeItem(TIMER_KEY); }
+function logSessao(materiaId, min) { if (min >= 1) { db.sessions.push({ materiaId, min, ts: Date.now() }); save(); } }
+function beep() {
+  try {
+    const a = new (window.AudioContext || window.webkitAudioContext)();
+    const o = a.createOscillator(), g = a.createGain();
+    o.connect(g); g.connect(a.destination);
+    o.frequency.value = 880; g.gain.value = .12;
+    o.start(); o.stop(a.currentTime + .35);
+  } catch (e) {}
+}
+function modalTimer(preMat) {
+  if (!db.materias.length) { toast('Crie uma matéria primeiro'); return; }
+  if (timerState()) { toast('Já existe uma sessão em andamento'); return; }
+  openModal(`
+    <h3 class="font-semibold text-lg mb-4 flex items-center gap-2"><i data-lucide="alarm-clock" class="w-5 h-5 text-accent-500"></i>Iniciar sessão de estudo</h3>
+    <label class="text-xs font-medium text-ink-400 block mb-1">Matéria</label>
+    <select id="tmMat" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm mb-3">
+      ${db.materias.map(m => `<option value="${m.id}" ${preMat === m.id ? 'selected' : ''}>${esc(m.nome)}</option>`).join('')}
+    </select>
+    <label class="text-xs font-medium text-ink-400 block mb-1">Modo</label>
+    <select id="tmModo" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm mb-4">
+      <option value="pomo">🍅 Pomodoro (${db.settings.foco} min foco / ${db.settings.pausa} min pausa)</option>
+      <option value="livre">⏱ Cronômetro livre</option>
+    </select>
+    <div class="flex justify-end gap-2">
+      <button onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-sm text-ink-400">Cancelar</button>
+      <button onclick="iniciarTimer()" class="px-4 py-2.5 rounded-xl bg-accent-500 text-white text-sm font-medium">▶ Começar</button>
+    </div>`);
+}
+function iniciarTimer() {
+  setTimerState({ materiaId: $('#tmMat').value, modo: $('#tmModo').value, fase: 'foco', start: Date.now(), paused: false, pauseStart: 0 });
+  closeModal();
+  $('#timerWidget').classList.remove('hidden');
+  clearInterval(timerInt); timerInt = setInterval(tickTimer, 1000); tickTimer();
+}
+function retomarTimer() {
+  if (!timerState()) return;
+  $('#timerWidget').classList.remove('hidden');
+  clearInterval(timerInt); timerInt = setInterval(tickTimer, 1000); tickTimer();
+}
+function tickTimer() {
+  const st = timerState();
+  if (!st) { clearInterval(timerInt); $('#timerWidget').classList.add('hidden'); return; }
+  const now = Date.now();
+  const elapsed = (st.paused ? st.pauseStart : now) - st.start;
+  const limite = st.modo === 'pomo' ? (st.fase === 'foco' ? db.settings.foco : db.settings.pausa) * 60000 : Infinity;
+  if (!st.paused && elapsed >= limite) {
+    if (st.fase === 'foco') { logSessao(st.materiaId, Math.round(limite / 60000)); st.fase = 'pausa'; toast('☕ Pausa! ' + db.settings.pausa + ' min'); }
+    else { st.fase = 'foco'; toast('🎯 Foco! ' + db.settings.foco + ' min'); }
+    beep(); st.start = now; setTimerState(st);
+  }
+  const e2 = st.paused ? st.pauseStart - st.start : now - st.start;
+  const mostrar = st.modo === 'pomo' ? Math.max(0, limite - e2) : e2;
+  $('#twTime').textContent = String(Math.floor(mostrar / 60000)).padStart(2, '0') + ':' + String(Math.floor(mostrar % 60000 / 1000)).padStart(2, '0');
+  $('#twInfo').textContent = (st.modo === 'pomo' ? (st.fase === 'foco' ? '🎯 ' : '☕ ') : '⏱ ') + (materiaById(st.materiaId)?.nome || '');
+  $('#twPause').textContent = st.paused ? '▶' : '⏸';
+}
+function pausarTimer() {
+  const st = timerState(); if (!st) return;
+  if (st.paused) { st.start += Date.now() - st.pauseStart; st.paused = false; }
+  else { st.paused = true; st.pauseStart = Date.now(); }
+  setTimerState(st); tickTimer();
+}
+function pararTimer() {
+  const st = timerState(); if (!st) return;
+  if (st.fase === 'foco') {
+    const fim = st.paused ? st.pauseStart : Date.now();
+    logSessao(st.materiaId, Math.round((fim - st.start) / 60000));
+  }
+  setTimerState(null); clearInterval(timerInt);
+  $('#timerWidget').classList.add('hidden');
+  toast('Sessão registrada ✓');
+  if (currentView === 'dashboard') renderDashboard();
+  if (currentView === 'ciclo') renderCiclo();
+}
+
+/* ============================ 14. GRÁFICOS DO PAINEL ============================ */
+function svgAcuracia() {
+  const weeks = [];
+  for (let i = 7; i >= 0; i--) {
+    const start = inicioSemana(Date.now() - i * 7 * 864e5), end = start + 7 * 864e5;
+    const as = db.answers.filter(a => a.ts >= start && a.ts < end);
+    weeks.push({
+      label: new Date(start).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      pct: as.length ? Math.round(as.filter(a => a.correct).length / as.length * 100) : null
+    });
+  }
+  if (!weeks.some(w => w.pct !== null)) return '<p class="text-sm text-ink-400">Responda questões para ver sua evolução semanal.</p>';
+  const X = i => (i / (weeks.length - 1)) * 290 + 18, Y = p => 92 - p * 0.8;
+  const pts = weeks.map((w, i) => w.pct === null ? null : `${X(i)},${Y(w.pct)}`).filter(Boolean).join(' ');
+  return `<svg viewBox="0 0 320 112" class="w-full">
+    ${[0, 50, 100].map(v => `<line x1="14" x2="312" y1="${Y(v)}" y2="${Y(v)}" stroke="currentColor" opacity=".08"/><text x="0" y="${Y(v) + 3}" font-size="8" fill="currentColor" opacity=".4">${v}</text>`).join('')}
+    <polyline points="${pts}" fill="none" stroke="#6c6cbb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    ${weeks.map((w, i) => w.pct === null ? '' : `<circle cx="${X(i)}" cy="${Y(w.pct)}" r="3.5" fill="#6c6cbb"/><text x="${X(i)}" y="108" font-size="7" text-anchor="middle" fill="currentColor" opacity=".5">${w.label}</text>`).join('')}
+  </svg>`;
+}
+function heatmapHTML() {
+  const mins = {};
+  db.sessions.forEach(s => { const k = new Date(s.ts).toDateString(); mins[k] = (mins[k] || 0) + s.min; });
+  db.answers.forEach(a => { const k = new Date(a.ts).toDateString(); mins[k] = (mins[k] || 0) + 2; });
+  const start = inicioSemana(Date.now() - 11 * 7 * 864e5);
+  let html = '<div class="flex gap-1">';
+  for (let w = 0; w < 12; w++) {
+    html += '<div class="flex flex-col gap-1">';
+    for (let d = 0; d < 7; d++) {
+      const t = start + (w * 7 + d) * 864e5;
+      if (t > Date.now()) { html += '<div class="w-3.5 h-3.5"></div>'; continue; }
+      const m = mins[new Date(t).toDateString()] || 0;
+      const cls = m === 0 ? 'bg-ink-100 dark:bg-ink-800' : m < 15 ? 'bg-accent-200 dark:bg-accent-600/40' : m < 30 ? 'bg-accent-300 dark:bg-accent-500/60' : m < 60 ? 'bg-accent-400' : 'bg-accent-500';
+      html += `<div class="w-3.5 h-3.5 rounded-[3px] ${cls}" title="${new Date(t).toLocaleDateString('pt-BR')} · ${m} min"></div>`;
+    }
+    html += '</div>';
+  }
+  return html + '</div>';
+}
+function topicosFracos() {
+  const map = {};
+  db.answers.forEach(a => {
+    if (!a.topicoId) return;
+    const k = a.materiaId + '|' + a.topicoId;
+    map[k] = map[k] || { t: 0, c: 0 };
+    map[k].t++; if (a.correct) map[k].c++;
+  });
+  return Object.entries(map)
+    .filter(([, v]) => v.t >= 5)
+    .map(([k, v]) => {
+      const [mId, tId] = k.split('|');
+      return { nome: `${materiaById(mId)?.nome || '?'} · ${topicoNome(mId, tId) || '?'}`, pct: Math.round(v.c / v.t * 100), n: v.t };
+    })
+    .sort((a, b) => a.pct - b.pct).slice(0, 5);
+}
+
+/* ============================ 15. IMPORTAÇÃO DE QUESTÕES EM LOTE ============================ */
+function promptImportar(raw, materia, topico) {
+  return `Você é um estruturador de questões de concurso. Receberá texto bruto copiado de provas/PDFs contendo uma ou mais questões (possivelmente com gabarito e comentários).
+
+MATÉRIA: ${materia} · TÓPICO: ${topico || 'geral'}
+
+TAREFA: estruture TODAS as questões encontradas. Para cada uma, detecte o formato:
+- Certo/Errado (Cebraspe): tipo "CE"
+- Múltipla escolha: tipo "ME"
+
+REGRAS:
+1. Preserve fielmente enunciado, itens e alternativas.
+2. Se o gabarito constar no texto, use-o. Se NÃO constar, resolva você mesmo com máximo rigor e adicione "gabaritoIA": true.
+3. Se não houver comentário no texto, escreva um comentário explicativo curto e didático para cada item/alternativa.
+4. Identifique a banca se mencionada (campo "banca"); senão use "Importada".
+
+Responda APENAS com JSON válido (array), sem texto adicional:
+[
+ {"tipo":"CE","banca":"...","contexto":"","itens":[{"texto":"...","gabarito":"C","comentario":"..."}],"gabaritoIA":false},
+ {"tipo":"ME","banca":"...","enunciado":"...","alternativas":[{"letra":"A","texto":"...","comentario":"..."}],"gabarito":"B","comentario":"...","gabaritoIA":false}
+]
+
+TEXTO BRUTO:
+"""
+${raw}
+"""`;
+}
+let _qsImportadas = [];
+function modalImportarQuestoes() {
+  if (!db.materias.length) { toast('Crie uma matéria primeiro'); modalNovaMateria(); return; }
+  openModal(`
+    <h3 class="font-semibold text-lg mb-1 flex items-center gap-2"><i data-lucide="clipboard-paste" class="w-5 h-5 text-accent-500"></i>Importar questões em lote</h3>
+    <p class="text-xs text-ink-400 mb-4">Cole questões de provas reais (com ou sem gabarito) — a IA estrutura tudo.</p>
+    <div class="grid grid-cols-2 gap-2 mb-3">
+      <div><label class="text-xs font-medium text-ink-400 block mb-1">Matéria</label>${selectMaterias('imMat', `onchange="fillTopicosImport()"`)}</div>
+      <div><label class="text-xs font-medium text-ink-400 block mb-1">Tópico</label><select id="imTop" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm"></select></div>
+    </div>
+    <textarea id="imRaw" rows="8" placeholder="Cole aqui as questões…" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent text-sm mb-3"></textarea>
+    <div id="imArea"></div>
+    <div class="flex justify-end gap-2">
+      <button onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-sm text-ink-400">Cancelar</button>
+      <button id="imBtn" onclick="importarQuestoesIA()" class="px-4 py-2.5 rounded-xl bg-accent-500 text-white text-sm font-medium">⚡ Estruturar com IA</button>
+    </div>`);
+  fillTopicosImport();
+}
+function fillTopicosImport() {
+  const m = materiaById($('#imMat').value);
+  $('#imTop').innerHTML = `<option value="">— sem tópico —</option>` +
+    (m ? m.topicos.map(t => `<option value="${t.id}">${esc(t.nome)}</option>`).join('') : '');
+}
+async function importarQuestoesIA() {
+  const raw = $('#imRaw').value.trim();
+  if (raw.length < 30) { toast('Cole as questões primeiro'); return; }
+  const btn = $('#imBtn'), area = $('#imArea');
+  btn.disabled = true; btn.textContent = 'Estruturando…';
+  area.innerHTML = `<div class="text-center py-4 text-sm text-ink-400 animate-pulse">🧠 Estruturando as questões…</div>`;
+  try {
+    const m = materiaById($('#imMat').value);
+    const result = await callClaude(promptImportar(raw.slice(0, 14000), m?.nome || '', topicoNome($('#imMat').value, $('#imTop').value)), 8192);
+    _qsImportadas = extractJSON(result);
+    if (!Array.isArray(_qsImportadas)) _qsImportadas = [_qsImportadas];
+    area.innerHTML = `
+      <div class="text-sm bg-sage-100 dark:bg-ink-850 text-sage-500 rounded-xl p-3 mb-3">✓ ${_qsImportadas.length} questão(ões) estruturada(s)${_qsImportadas.some(q => q.gabaritoIA) ? ' · ⚠️ algumas com gabarito resolvido pela IA (confira)' : ''}</div>
+      <button onclick="salvarImportadas()" class="w-full py-3 rounded-xl bg-sage-500 text-white text-sm font-medium mb-3">💾 Salvar no banco de questões</button>`;
+    btn.style.display = 'none';
+  } catch (e) {
+    area.innerHTML = `<div class="text-sm text-blush-500 bg-blush-100 dark:bg-ink-850 rounded-xl p-3 mb-3">⚠️ ${esc(e.message)}</div>`;
+    btn.disabled = false; btn.textContent = '⚡ Tentar novamente';
+  }
+}
+function salvarImportadas() {
+  const mId = $('#imMat').value, tId = $('#imTop').value || null;
+  let n = 0;
+  _qsImportadas.forEach(q => {
+    if (!q.tipo) return;
+    q.id = uid(); q.materiaId = mId; q.topicoId = tId;
+    q.banca = q.banca || 'Importada'; q.origem = 'importada';
+    q.trecho = ''; q.createdAt = Date.now(); q.lastResult = null;
+    db.questoes.push(q); n++;
+  });
+  save(); closeModal(); toast(`${n} questão(ões) importada(s) ✓`); renderQuestoes();
+}
+
+/* ============================ 16. SIMULADOS ============================ */
+let sim = null, simInt = null;
+
+function renderSimulados() {
+  const hist = [...db.simulados].sort((a, b) => b.ts - a.ts);
+  $('#view-simulados').innerHTML = `
+    <div class="flex items-center justify-between mb-6">
+      <div><h1 class="text-2xl font-semibold">Simulados</h1><p class="text-ink-400 text-sm">Treine o ritmo de prova com tempo real.</p></div>
+      <button onclick="modalNovoSimulado()" class="px-3.5 py-2.5 rounded-xl bg-accent-500 text-white text-sm font-medium flex items-center gap-1.5"><i data-lucide="play" class="w-4 h-4"></i>Novo simulado</button>
+    </div>
+    ${Object.keys(db.bancaStats).length ? `
+    <div class="flex flex-wrap gap-2 mb-4">
+      ${Object.entries(db.bancaStats).map(([b, s]) => `<span class="px-3 py-1.5 rounded-full bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 text-xs">⏱ ${esc(b)}: <b>${(s.min / s.q).toFixed(1)} min/questão</b></span>`).join('')}
+    </div>` : ''}
+    ${hist.map(s => {
+      const pct = s.total ? Math.round(s.acertos / s.total * 100) : 0;
+      return `
+      <div class="bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-4 mb-3 flex items-center gap-4">
+        <div class="text-2xl font-semibold ${pct >= 70 ? 'text-sage-500' : pct >= 50 ? 'text-butter-500' : 'text-blush-500'}">${pct}%</div>
+        <div class="flex-1 text-sm">
+          <div class="font-medium">${s.acertos}/${s.total} itens · ${s.n} questões</div>
+          <div class="text-xs text-ink-400">${fmtDate(s.ts)} · ${s.tempoMin} min</div>
+        </div>
+      </div>`;
+    }).join('') || `<div class="text-center py-16 text-ink-400"><i data-lucide="timer" class="w-10 h-10 mx-auto mb-3 opacity-50"></i><p>Nenhum simulado ainda.<br>Gere ou importe questões e monte sua primeira prova.</p></div>`}`;
+  lucide.createIcons();
+}
+function modalNovoSimulado() {
+  const matsComQ = db.materias.filter(m => db.questoes.some(q => q.materiaId === m.id));
+  if (!matsComQ.length) { toast('Gere ou importe questões primeiro'); return; }
+  openModal(`
+    <h3 class="font-semibold text-lg mb-4 flex items-center gap-2"><i data-lucide="timer" class="w-5 h-5 text-accent-500"></i>Novo simulado</h3>
+    <label class="text-xs font-medium text-ink-400 block mb-2">Matérias</label>
+    <div class="mb-3 max-h-36 overflow-y-auto">
+      ${matsComQ.map(m => `<label class="flex items-center gap-2 py-1.5 text-sm cursor-pointer"><input type="checkbox" class="simMat accent-[#6c6cbb]" value="${m.id}" checked>${esc(m.nome)} <span class="text-xs text-ink-400">(${db.questoes.filter(q => q.materiaId === m.id).length}q)</span></label>`).join('')}
+    </div>
+    <div class="grid grid-cols-2 gap-2 mb-4">
+      <div><label class="text-xs font-medium text-ink-400 block mb-1">Nº de questões</label>
+        <select id="simN" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm"><option>5</option><option selected>10</option><option>20</option><option>30</option></select></div>
+      <div><label class="text-xs font-medium text-ink-400 block mb-1">Tempo (min)</label>
+        <select id="simMin" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm"><option>10</option><option>15</option><option selected>30</option><option>60</option><option>90</option><option>120</option></select></div>
+    </div>
+    <div class="flex justify-end gap-2">
+      <button onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-sm text-ink-400">Cancelar</button>
+      <button onclick="iniciarSimulado()" class="px-4 py-2.5 rounded-xl bg-accent-500 text-white text-sm font-medium">▶ Iniciar</button>
+    </div>`);
+}
+function iniciarSimulado() {
+  const mats = $$('.simMat:checked').map(c => c.value);
+  let pool = db.questoes.filter(q => mats.includes(q.materiaId));
+  if (!pool.length) { toast('Nenhuma questão nas matérias escolhidas'); return; }
+  const n = Math.min(+$('#simN').value, pool.length);
+  pool = pool.sort(() => Math.random() - .5).slice(0, n);
+  const min = +$('#simMin').value;
+  sim = { qs: pool, idx: 0, resp: {}, durMin: min, end: Date.now() + min * 60000, startTs: Date.now() };
+  closeModal();
+  clearInterval(simInt);
+  simInt = setInterval(() => {
+    if (!sim) { clearInterval(simInt); return; }
+    if (Date.now() >= sim.end) { toast('⏰ Tempo esgotado!'); finalizarSimulado(); }
+    else {
+      const el = $('#simClock');
+      if (el) {
+        const r = sim.end - Date.now();
+        el.textContent = String(Math.floor(r / 60000)).padStart(2, '0') + ':' + String(Math.floor(r % 60000 / 1000)).padStart(2, '0');
+        if (r < 60000) el.classList.add('text-blush-500');
+      }
+    }
+  }, 1000);
+  renderSimQ();
+}
+function renderSimQ() {
+  const q = sim.qs[sim.idx], r = sim.resp[sim.idx] || {};
+  const selCls = 'bg-accent-500 text-white border-accent-500';
+  let corpo = '';
+  if (q.tipo === 'CE') {
+    corpo = `${q.contexto ? `<p class="text-sm leading-relaxed mb-4 bg-ink-50 dark:bg-ink-900 rounded-xl p-4">${esc(q.contexto)}</p>` : ''}
+      ${q.itens.map((it, i) => `
+        <div class="bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-4 mb-3">
+          <p class="text-sm leading-relaxed mb-3">${i + 1}. ${esc(it.texto)}</p>
+          <div class="flex gap-2">
+            <button onclick="simCE(${i},'C')" class="flex-1 py-2.5 rounded-xl border text-sm font-medium ${r[i] === 'C' ? selCls : 'border-ink-200 dark:border-ink-700'}">✓ Certo</button>
+            <button onclick="simCE(${i},'E')" class="flex-1 py-2.5 rounded-xl border text-sm font-medium ${r[i] === 'E' ? selCls : 'border-ink-200 dark:border-ink-700'}">✗ Errado</button>
+          </div>
+        </div>`).join('')}`;
+  } else {
+    corpo = `<p class="text-sm leading-relaxed mb-4 bg-ink-50 dark:bg-ink-900 rounded-xl p-4">${esc(q.enunciado)}</p>
+      ${q.alternativas.map(a => `
+        <button onclick="simME('${a.letra}')" class="w-full text-left flex gap-3 items-start border rounded-2xl p-4 mb-2.5 text-sm ${r.alt === a.letra ? 'border-accent-500 ring-2 ring-accent-300 bg-white dark:bg-ink-900' : 'border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900'}">
+          <span class="font-semibold shrink-0">${a.letra})</span><span class="flex-1">${esc(a.texto)}</span>
+        </button>`).join('')}`;
+  }
+  $('#view-simulados').innerHTML = `
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-sm font-medium">Questão ${sim.idx + 1}/${sim.qs.length} <span class="text-xs text-ink-400">· ${esc(q.banca)} · ${esc(materiaById(q.materiaId)?.nome || '')}</span></span>
+      <span id="simClock" class="text-lg font-semibold tabular-nums">--:--</span>
+    </div>
+    <div class="h-1.5 rounded-full bg-ink-100 dark:bg-ink-800 mb-5"><div class="h-full rounded-full bg-accent-400" style="width:${((sim.idx + 1) / sim.qs.length) * 100}%"></div></div>
+    ${corpo}
+    <div class="flex gap-2 mt-4">
+      <button onclick="simNav(-1)" ${sim.idx === 0 ? 'disabled' : ''} class="px-5 py-3 rounded-2xl border border-ink-200 dark:border-ink-700 text-sm font-medium disabled:opacity-30">← Anterior</button>
+      ${sim.idx < sim.qs.length - 1
+        ? `<button onclick="simNav(1)" class="flex-1 py-3 rounded-2xl bg-accent-500 text-white text-sm font-medium">Próxima →</button>`
+        : `<button onclick="finalizarSimulado()" class="flex-1 py-3 rounded-2xl bg-sage-500 text-white text-sm font-medium">✓ Finalizar simulado</button>`}
+      ${sim.idx < sim.qs.length - 1 ? `<button onclick="if(confirm('Finalizar agora? Questões em branco contam como erro.'))finalizarSimulado()" class="px-4 py-3 rounded-2xl border border-ink-200 dark:border-ink-700 text-xs text-ink-400">Finalizar</button>` : ''}
+    </div>`;
+}
+function simCE(i, v) { (sim.resp[sim.idx] = sim.resp[sim.idx] || {})[i] = v; renderSimQ(); }
+function simME(l) { sim.resp[sim.idx] = { alt: l }; renderSimQ(); }
+function simNav(d) { sim.idx = Math.max(0, Math.min(sim.qs.length - 1, sim.idx + d)); renderSimQ(); }
+
+function finalizarSimulado() {
+  clearInterval(simInt);
+  if (!sim) return;
+  let total = 0, acertos = 0;
+  const porMat = {}, detalhes = [];
+  sim.qs.forEach((q, qi) => {
+    const r = sim.resp[qi] || {}, errosQ = [];
+    const reg = ok => {
+      total++; if (ok) acertos++;
+      porMat[q.materiaId] = porMat[q.materiaId] || { t: 0, c: 0 };
+      porMat[q.materiaId].t++; if (ok) porMat[q.materiaId].c++;
+      db.answers.push({ materiaId: q.materiaId, topicoId: q.topicoId, correct: ok, ts: Date.now() });
+    };
+    if (q.tipo === 'CE') q.itens.forEach((it, i) => { const ok = r[i] === it.gabarito; reg(ok); if (!ok) errosQ.push('Item ' + (i + 1)); });
+    else { const ok = r.alt === q.gabarito; reg(ok); if (!ok) errosQ.push('Alternativa ' + (r.alt || 'em branco') + ' (correta: ' + q.gabarito + ')'); }
+    q.lastResult = errosQ.length === 0;
+    if (errosQ.length) registrarErro(q, '[simulado] ' + errosQ.join(', '));
+    else marcarAcertoErro(q);
+    detalhes.push({ q, ok: errosQ.length === 0 });
+  });
+  const tempoMin = Math.max(1, Math.round((Date.now() - sim.startTs) / 60000));
+  db.simulados.push({ id: uid(), ts: Date.now(), total, acertos, tempoMin, n: sim.qs.length });
+  // ritmo médio por banca (aproximação: tempo do simulado distribuído pelas questões)
+  sim.qs.forEach(q => {
+    const bs = db.bancaStats[q.banca] = db.bancaStats[q.banca] || { min: 0, q: 0 };
+    bs.min += tempoMin / sim.qs.length; bs.q++;
+  });
+  save();
+  const pct = total ? Math.round(acertos / total * 100) : 0;
+  $('#view-simulados').innerHTML = `
+    <div class="text-center py-6">
+      <div class="text-5xl mb-2">${pct >= 70 ? '🏆' : pct >= 50 ? '💪' : '📚'}</div>
+      <div class="text-4xl font-semibold ${pct >= 70 ? 'text-sage-500' : pct >= 50 ? 'text-butter-500' : 'text-blush-500'}">${pct}%</div>
+      <p class="text-ink-400 text-sm mt-1">${acertos}/${total} itens · ${tempoMin} min ${tempoMin > 0 ? '· ' + (tempoMin / sim.qs.length).toFixed(1) + ' min/questão' : ''}</p>
+    </div>
+    <h2 class="font-semibold mb-3 text-sm">Por matéria</h2>
+    <div class="bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-4 mb-5">
+      ${Object.entries(porMat).map(([mId, s]) => {
+        const p = Math.round(s.c / s.t * 100);
+        return `<div class="flex justify-between text-sm py-1.5"><span>${esc(materiaById(mId)?.nome || '?')}</span><span class="${p >= 70 ? 'text-sage-500' : 'text-blush-500'} font-medium">${s.c}/${s.t} · ${p}%</span></div>`;
+      }).join('')}
+    </div>
+    <h2 class="font-semibold mb-3 text-sm">Questões (toque para ver comentários)</h2>
+    ${detalhes.map(d => `
+      <button onclick="showView('questoes');abrirQuestao('${d.q.id}')" class="w-full text-left flex items-center gap-3 bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-xl p-3 mb-2 text-sm">
+        <span>${d.ok ? '✅' : '❌'}</span>
+        <span class="flex-1 min-w-0 truncate">${esc((d.q.tipo === 'CE' ? d.q.itens?.[0]?.texto : d.q.enunciado) || '')}</span>
+      </button>`).join('')}
+    <button onclick="renderSimulados()" class="w-full py-3 rounded-2xl border border-ink-200 dark:border-ink-700 text-sm font-medium mt-3">Voltar aos simulados</button>`;
+  sim = null;
+  lucide.createIcons();
+}
+
+/* ============================ 17. LEI SECA (parser estrutural) ============================ */
+function leiParaHTML(txt) {
+  const lines = txt.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  let html = '', artOpen = false;
+  const fechar = () => { if (artOpen) { html += '</div>'; artOpen = false; } };
+  for (const l of lines) {
+    const art = l.match(/^(Art(?:igo)?\.?\s*\d+[ºo°]?(?:-[A-Z])?\.?)/i);
+    if (art) {
+      fechar(); artOpen = true;
+      html += `<div class="lei-art"><p class="lei-caput"><button class="art-gen" title="Gerar flashcards deste artigo">⚡</button><span class="art-num">${esc(art[1])}</span> ${esc(l.slice(art[1].length).trim())}</p>`;
+    }
+    else if (/^(§\s*\d+|Parágrafo único)/i.test(l)) html += `<p class="lei-par">${esc(l)}</p>`;
+    else if (/^[IVXLCDM]+\s*[–\-—.)]/.test(l)) html += `<p class="lei-inc">${esc(l)}</p>`;
+    else if (/^[a-z]\)/.test(l)) html += `<p class="lei-ali">${esc(l)}</p>`;
+    else if (/^(T[ÍI]TULO|CAP[ÍI]TULO|SE[ÇC][ÃA]O|SUBSE[ÇC][ÃA]O|LIVRO|PARTE|DISPOSI[ÇC]) /i.test(l) || /^(T[ÍI]TULO|CAP[ÍI]TULO)/i.test(l)) { fechar(); html += `<p class="lei-head">${esc(l)}</p>`; }
+    else html += artOpen ? `<p class="lei-txt">${esc(l)}</p>` : `<p>${esc(l)}</p>`;
+  }
+  fechar();
+  return html;
+}
+
+/* ============================ 18. RESUMOS E MAPAS MENTAIS (IA) ============================ */
+function promptResumo(materia, topico, trecho, tipo) {
+  const instr = {
+    resumo: 'um RESUMO HIERÁRQUICO denso e completo, organizado com títulos (## e ###) e bullets aninhados (-), destacando em **negrito** prazos, competências, exceções e palavras-chave que caem em prova',
+    mapa: 'um MAPA MENTAL em lista aninhada markdown: comece com "# conceito central", depois ramos com "-" e sub-ramos indentados com 2 espaços por nível (máx. 4 níveis); cada nó com 2-6 palavras',
+    esquema: 'um ESQUEMA DE REVISÃO RÁPIDA: bullets no formato "**conceito** → definição curta", uma seção "## Prazos e números" listando todos os prazos/percentuais, e uma seção final "## ⚠️ Pegadinhas prováveis" com as confusões que bancas exploram'
+  }[tipo];
+  return `Você é um professor de elite especializado em concursos públicos.
+MATÉRIA: ${materia} · TÓPICO: ${topico || 'geral'}
+
+Crie ${instr}.
+Use APENAS as informações do trecho abaixo. Responda em markdown puro, sem comentários adicionais.
+
+"""
+${trecho}
+"""`;
+}
+function mdInline(s) {
+  return esc(s)
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/\*(.+?)\*/g, '<i>$1</i>')
+    .replace(/`(.+?)`/g, '<code class="text-accent-500">$1</code>');
+}
+function mdToHTML(md) {
+  let html = '', depth = 0;
+  const fechar = n => { while (depth > n) { html += '</ul>'; depth--; } };
+  md.split('\n').forEach(l => {
+    const h = l.match(/^(#{1,5})\s+(.*)/);
+    const li = l.match(/^(\s*)[-*]\s+(.*)/);
+    if (h) { fechar(0); html += `<h${Math.min(h[1].length + 1, 5)}>${mdInline(h[2])}</h${Math.min(h[1].length + 1, 5)}>`; }
+    else if (li) {
+      const lvl = Math.floor(li[1].length / 2) + 1;
+      while (depth < lvl) { html += '<ul>'; depth++; }
+      fechar(lvl);
+      html += `<li>${mdInline(li[2])}</li>`;
+    }
+    else if (l.trim()) { fechar(0); html += `<p>${mdInline(l)}</p>`; }
+  });
+  fechar(0);
+  return `<div class="md-body text-sm leading-relaxed">${html}</div>`;
+}
+const TIPO_RESUMO = { resumo: '📋 Resumo hierárquico', mapa: '🧠 Mapa mental', esquema: '⚡ Esquema de revisão' };
+function modalResumos() {
+  const c = ctxAtual(); if (!c) return;
+  const lst = db.resumos.filter(r => r.textId === c.text.id).sort((a, b) => b.createdAt - a.createdAt);
+  openModal(`
+    <h3 class="font-semibold text-lg mb-1 flex items-center gap-2"><i data-lucide="network" class="w-5 h-5 text-butter-500"></i>Resumos e mapas</h3>
+    <p class="text-xs text-ink-400 mb-4">${esc(c.text.titulo)}</p>
+    ${lst.map(r => `
+      <div class="flex items-center gap-2 p-3 rounded-xl bg-ink-50 dark:bg-ink-850 mb-2">
+        <button onclick="verResumo('${r.id}')" class="flex-1 text-left text-sm font-medium">${TIPO_RESUMO[r.tipo] || r.tipo} <span class="text-xs text-ink-400 font-normal">· ${fmtDate(r.createdAt)}</span></button>
+        <button onclick="delResumo('${r.id}')" class="text-ink-300 hover:text-blush-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+      </div>`).join('') || '<p class="text-xs text-ink-300 dark:text-ink-500 mb-2">Nenhum resumo gerado ainda.</p>'}
+    <div class="border-t border-ink-100 dark:border-ink-800 mt-4 pt-4">
+      <label class="text-xs font-medium text-ink-400 block mb-1">Gerar novo (IA)</label>
+      <select id="resTipo" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm mb-3">
+        ${Object.entries(TIPO_RESUMO).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}
+      </select>
+      <div id="resArea"></div>
+      <button id="resBtn" onclick="gerarResumo()" class="w-full py-3 rounded-xl bg-butter-500 text-white text-sm font-medium">✨ Gerar</button>
+    </div>`);
+}
+async function gerarResumo() {
+  const c = ctxAtual(); if (!c) return;
+  const tipo = $('#resTipo').value;
+  const btn = $('#resBtn'), area = $('#resArea');
+  btn.disabled = true; btn.textContent = 'Gerando…';
+  area.innerHTML = `<div class="text-center py-3 text-sm text-ink-400 animate-pulse">🧠 Sintetizando o conteúdo…</div>`;
+  try {
+    const base = trechoBase('');
+    const md = await callClaude(promptResumo(c.materia, c.topico, base, tipo), 6000);
+    const r = { id: uid(), textId: c.text.id, tipo, md, createdAt: Date.now() };
+    db.resumos.push(r); save();
+    verResumo(r.id);
+  } catch (e) {
+    area.innerHTML = `<div class="text-sm text-blush-500 bg-blush-100 dark:bg-ink-850 rounded-xl p-3 mb-2">⚠️ ${esc(e.message)}</div>`;
+    btn.disabled = false; btn.textContent = '✨ Tentar novamente';
+  }
+}
+function verResumo(id) {
+  const r = db.resumos.find(x => x.id === id); if (!r) return;
+  openModal(`
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold">${TIPO_RESUMO[r.tipo] || r.tipo}</h3>
+      <button onclick="modalResumos()" class="text-xs text-ink-400">← voltar</button>
+    </div>
+    ${mdToHTML(r.md)}
+    <button onclick="closeModal()" class="w-full py-3 rounded-xl border border-ink-200 dark:border-ink-700 text-sm font-medium mt-4">Fechar</button>`);
+}
+function delResumo(id) {
+  db.resumos = db.resumos.filter(r => r.id !== id);
+  save(); modalResumos();
+}
+
+/* ============================ 19. COBERTURA DO EDITAL E STREAK ============================ */
+function cobertura() {
+  let tot = 0, ok = 0; const buracos = [];
+  db.materias.forEach(m => m.topicos.forEach(t => {
+    tot++;
+    const temTexto = db.texts.some(x => x.topicoId === t.id);
+    const temCard = db.cards.some(x => x.topicoId === t.id);
+    const temQ = db.questoes.some(x => x.topicoId === t.id);
+    if (temTexto && temCard && temQ) ok++;
+    else buracos.push({ materia: m.nome, topico: t.nome, temTexto, temCard, temQ });
+  }));
+  return { tot, ok, pct: tot ? Math.round(ok / tot * 100) : 0, buracos };
+}
+function streak() {
+  const dias = new Set();
+  db.sessions.forEach(x => dias.add(new Date(x.ts).toDateString()));
+  db.answers.forEach(x => dias.add(new Date(x.ts).toDateString()));
+  let n = 0, d = new Date(); d.setHours(0, 0, 0, 0);
+  if (!dias.has(d.toDateString())) d = new Date(d.getTime() - 864e5); // hoje ainda não estudou: conta a partir de ontem
+  while (dias.has(d.toDateString())) { n++; d = new Date(d.getTime() - 864e5); }
+  return n;
+}
+
+/* ============================ 20. DISCURSIVAS (correção por espelho, IA) ============================ */
+const TIPOS_DISC = ['Dissertação', 'Questão discursiva', 'Estudo de caso', 'Peça/Parecer'];
+
+function renderDiscursiva() {
+  const lst = [...db.discursivas].sort((a, b) => b.ts - a.ts);
+  $('#view-discursiva').innerHTML = `
+    <div class="flex items-center justify-between mb-6">
+      <div><h1 class="text-2xl font-semibold">Discursivas</h1><p class="text-ink-400 text-sm">Escreva e receba correção de banca com espelho.</p></div>
+      <button onclick="modalNovaDiscursiva()" class="px-3.5 py-2.5 rounded-xl bg-accent-500 text-white text-sm font-medium flex items-center gap-1.5"><i data-lucide="plus" class="w-4 h-4"></i><span class="hidden sm:inline">Nova redação</span></button>
+    </div>
+    ${lst.map(d => `
+      <button onclick="abrirDiscursiva('${d.id}')" class="w-full text-left bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-4 mb-3 hover:border-accent-300 group">
+        <div class="flex items-center gap-2 text-[11px] text-ink-400 mb-1.5">
+          ${d.correcao ? `<span class="font-semibold ${d.correcao.nota >= 70 ? 'text-sage-500' : d.correcao.nota >= 50 ? 'text-butter-500' : 'text-blush-500'}">${d.correcao.nota}/100</span>` : '<span class="text-ink-300">rascunho</span>'}
+          · ${esc(d.banca)} · ${esc(d.tipo)} · ${esc(materiaById(d.materiaId)?.nome || '')} · ${fmtDate(d.ts)}
+          <i data-lucide="trash-2" onclick="event.stopPropagation();delDiscursiva('${d.id}')" class="w-3.5 h-3.5 ml-auto opacity-0 group-hover:opacity-100 hover:text-blush-500"></i>
+        </div>
+        <div class="text-sm line-clamp-2">${esc(d.tema.slice(0, 180))}</div>
+      </button>`).join('') || `<div class="text-center py-16 text-ink-400"><i data-lucide="pen-line" class="w-10 h-10 mx-auto mb-3 opacity-50"></i><p>Nenhuma discursiva ainda.<br>A fase discursiva elimina mais gente que a objetiva — treine desde cedo.</p></div>`}`;
+  lucide.createIcons();
+}
+function delDiscursiva(id) {
+  if (!confirm('Excluir esta redação?')) return;
+  db.discursivas = db.discursivas.filter(d => d.id !== id);
+  save(); renderDiscursiva();
+}
+function modalNovaDiscursiva() {
+  if (!db.materias.length) { toast('Crie uma matéria primeiro'); return; }
+  openModal(`
+    <h3 class="font-semibold text-lg mb-4 flex items-center gap-2"><i data-lucide="pen-line" class="w-5 h-5 text-accent-500"></i>Nova discursiva</h3>
+    <div class="grid grid-cols-2 gap-2 mb-3">
+      <div><label class="text-xs font-medium text-ink-400 block mb-1">Matéria</label>${selectMaterias('dcMat')}</div>
+      <div><label class="text-xs font-medium text-ink-400 block mb-1">Banca</label>
+        <select id="dcBanca" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm">
+          ${['Cebraspe', 'FGV', 'FCC', 'Vunesp'].map(b => `<option>${b}</option>`).join('')}
+        </select></div>
+    </div>
+    <label class="text-xs font-medium text-ink-400 block mb-1">Tipo</label>
+    <select id="dcTipo" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm mb-3">
+      ${TIPOS_DISC.map(t => `<option>${t}</option>`).join('')}
+    </select>
+    <label class="text-xs font-medium text-ink-400 block mb-1">Tema / comando da questão</label>
+    <textarea id="dcTema" rows="3" placeholder="Cole o comando da prova ou gere um tema com a IA…" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent text-sm mb-2"></textarea>
+    <button id="dcGerarTema" onclick="gerarTemaIA()" class="text-xs px-3 py-2 rounded-xl bg-butter-100 dark:bg-ink-850 text-butter-500 font-medium mb-4">🎲 Gerar tema no estilo da banca (IA)</button>
+    <div class="flex justify-end gap-2">
+      <button onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-sm text-ink-400">Cancelar</button>
+      <button onclick="criarDiscursiva()" class="px-4 py-2.5 rounded-xl bg-accent-500 text-white text-sm font-medium">Começar a escrever</button>
+    </div>`);
+}
+async function gerarTemaIA() {
+  const btn = $('#dcGerarTema');
+  btn.disabled = true; btn.textContent = 'Gerando tema…';
+  try {
+    const m = materiaById($('#dcMat').value)?.nome || '';
+    const tema = await callClaude(`Você é elaborador da banca ${$('#dcBanca').value}. Crie UM comando de ${$('#dcTipo').value} inédito de ${m} para concurso público, no estilo real da banca: contextualização curta + comando claro com 2-3 aspectos a abordar. Responda APENAS com o texto do comando, sem títulos nem comentários.`, 800);
+    $('#dcTema').value = tema.trim();
+  } catch (e) { toast('⚠️ ' + e.message, 3500); }
+  btn.disabled = false; btn.textContent = '🎲 Gerar tema no estilo da banca (IA)';
+}
+function criarDiscursiva() {
+  const tema = $('#dcTema').value.trim();
+  if (tema.length < 15) { toast('Defina o tema/comando primeiro'); return; }
+  const d = { id: uid(), materiaId: $('#dcMat').value, banca: $('#dcBanca').value, tipo: $('#dcTipo').value, tema, resposta: '', correcao: null, ts: Date.now() };
+  db.discursivas.push(d); save(); closeModal(); abrirDiscursiva(d.id);
+}
+function abrirDiscursiva(id) {
+  const d = db.discursivas.find(x => x.id === id); if (!d) return;
+  $$('.view').forEach(v => v.classList.remove('active'));
+  $('#view-discursiva').classList.add('active');
+  currentView = 'discursiva'; renderNav();
+  $('#view-discursiva').innerHTML = `
+    <button onclick="renderDiscursiva()" class="flex items-center gap-1.5 text-sm text-ink-400 mb-4"><i data-lucide="arrow-left" class="w-4 h-4"></i>Voltar</button>
+    <div class="text-[11px] text-ink-400 mb-2">${esc(d.banca)} · ${esc(d.tipo)} · ${esc(materiaById(d.materiaId)?.nome || '')}</div>
+    <div class="bg-ink-50 dark:bg-ink-900 rounded-2xl p-4 text-sm leading-relaxed mb-4"><b>Comando:</b> ${esc(d.tema)}</div>
+    <textarea id="dcResposta" rows="14" oninput="contarDiscursiva()" placeholder="Escreva sua resposta aqui… (no iPad, você também pode ditar)" class="w-full px-4 py-3 rounded-2xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm leading-relaxed mb-1">${esc(d.resposta)}</textarea>
+    <div class="flex items-center text-[11px] text-ink-400 mb-4"><span id="dcContador"></span></div>
+    <div class="flex gap-2 mb-5">
+      <button onclick="salvarDiscursiva('${d.id}')" class="px-4 py-3 rounded-2xl border border-ink-200 dark:border-ink-700 text-sm font-medium">💾 Salvar rascunho</button>
+      <button id="dcCorrigir" onclick="corrigirDiscursiva('${d.id}')" class="flex-1 py-3 rounded-2xl bg-accent-500 text-white text-sm font-medium">⚖️ Corrigir como a banca (IA)</button>
+    </div>
+    <div id="dcResultado">${d.correcao ? renderCorrecao(d.correcao) : ''}</div>`;
+  lucide.createIcons(); contarDiscursiva();
+}
+function contarDiscursiva() {
+  const v = $('#dcResposta')?.value || '';
+  const palavras = v.trim() ? v.trim().split(/\s+/).length : 0;
+  const linhas = Math.ceil(v.length / 70); // ~70 caracteres por linha de prova
+  if ($('#dcContador')) $('#dcContador').textContent = `${palavras} palavras · ≈${linhas} linhas de prova`;
+}
+function salvarDiscursiva(id) {
+  const d = db.discursivas.find(x => x.id === id); if (!d) return;
+  d.resposta = $('#dcResposta').value; save(); toast('Rascunho salvo ✓');
+}
+function promptCorrecaoDiscursiva(d, materia) {
+  return `Você é examinador experiente da banca ${d.banca}, corrigindo prova discursiva de concurso com rigor real de banca.
+
+MATÉRIA: ${materia} · TIPO: ${d.tipo}
+COMANDO DA QUESTÃO:
+"""
+${d.tema}
+"""
+RESPOSTA DO CANDIDATO:
+"""
+${d.resposta}
+"""
+
+Corrija seguindo o padrão da banca:
+1. ESPELHO DE CORREÇÃO: o que a resposta ideal deveria conter (tópicos exigíveis), em markdown com bullets.
+2. AVALIAÇÃO POR CRITÉRIO com notas: Conteúdo/domínio do tema (máx 40), Estrutura/coerência/atendimento ao comando (máx 30), Norma culta/clareza (máx 30).
+3. ERROS localizados: trechos problemáticos (gramática, impropriedade técnica, fuga ao comando) com a correção.
+4. NOTA FINAL (0-100, soma dos critérios) e as 3 melhorias mais importantes.
+
+Seja exigente como a banca real: aponte ausências do espelho, generalidades vazias e juridiquês incorreto.
+
+Responda APENAS com JSON válido:
+{"nota":0,"criterios":[{"nome":"Conteúdo","nota":0,"max":40,"comentario":"..."},{"nome":"Estrutura e coerência","nota":0,"max":30,"comentario":"..."},{"nome":"Norma culta","nota":0,"max":30,"comentario":"..."}],"espelho":"markdown do espelho","erros":[{"trecho":"...","correcao":"...","tipo":"gramática|técnico|estrutura"}],"melhorias":["...","...","..."]}`;
+}
+async function corrigirDiscursiva(id) {
+  const d = db.discursivas.find(x => x.id === id); if (!d) return;
+  d.resposta = $('#dcResposta').value;
+  if (d.resposta.trim().split(/\s+/).length < 30) { toast('Escreva ao menos ~30 palavras antes de corrigir'); return; }
+  save();
+  const btn = $('#dcCorrigir');
+  btn.disabled = true; btn.textContent = 'Corrigindo com rigor de banca…';
+  $('#dcResultado').innerHTML = `<div class="text-center py-6 text-sm text-ink-400 animate-pulse">⚖️ O examinador está lendo sua prova…</div>`;
+  try {
+    const raw = await callClaude(promptCorrecaoDiscursiva(d, materiaById(d.materiaId)?.nome || ''), 6000);
+    d.correcao = extractJSON(raw); save();
+    $('#dcResultado').innerHTML = renderCorrecao(d.correcao);
+  } catch (e) {
+    $('#dcResultado').innerHTML = `<div class="text-sm text-blush-500 bg-blush-100 dark:bg-ink-850 rounded-xl p-3">⚠️ ${esc(e.message)}</div>`;
+  }
+  btn.disabled = false; btn.textContent = '⚖️ Corrigir como a banca (IA)';
+}
+function renderCorrecao(c) {
+  return `
+  <div class="fade-in">
+    <div class="text-center bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-5 mb-4">
+      <div class="text-xs text-ink-400 mb-1">Nota estimada</div>
+      <div class="text-4xl font-semibold ${c.nota >= 70 ? 'text-sage-500' : c.nota >= 50 ? 'text-butter-500' : 'text-blush-500'}">${c.nota}<span class="text-lg text-ink-300">/100</span></div>
+    </div>
+    ${(c.criterios || []).map(cr => `
+      <div class="bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-4 mb-2.5">
+        <div class="flex justify-between text-sm mb-1"><b>${esc(cr.nome)}</b><span class="font-semibold">${cr.nota}/${cr.max}</span></div>
+        <div class="h-1.5 rounded-full bg-ink-100 dark:bg-ink-800 mb-2"><div class="h-full rounded-full bg-accent-400" style="width:${Math.round(cr.nota / cr.max * 100)}%"></div></div>
+        <p class="text-xs text-ink-500 dark:text-ink-300 leading-relaxed">${esc(cr.comentario)}</p>
+      </div>`).join('')}
+    ${(c.erros || []).length ? `
+      <h3 class="font-semibold text-sm mt-4 mb-2">✏️ Erros apontados</h3>
+      ${c.erros.map(e2 => `
+        <div class="bg-blush-100/60 dark:bg-ink-900 border border-blush-100 dark:border-ink-800 rounded-xl p-3 mb-2 text-xs leading-relaxed">
+          <span class="px-1.5 py-0.5 rounded bg-blush-300/40 text-blush-500 font-medium mr-1">${esc(e2.tipo)}</span>
+          “${esc(e2.trecho)}” → <b>${esc(e2.correcao)}</b>
+        </div>`).join('')}` : ''}
+    <h3 class="font-semibold text-sm mt-4 mb-2">📋 Espelho de correção</h3>
+    <div class="bg-white dark:bg-ink-900 border border-ink-100 dark:border-ink-800 rounded-2xl p-4 mb-4">${mdToHTML(c.espelho || '')}</div>
+    ${(c.melhorias || []).length ? `
+      <h3 class="font-semibold text-sm mb-2">🚀 Prioridades para a próxima</h3>
+      <div class="bg-accent-100/50 dark:bg-ink-900 border border-accent-200 dark:border-ink-800 rounded-2xl p-4 text-sm">
+        ${c.melhorias.map((m, i) => `<p class="mb-1.5">${i + 1}. ${esc(m)}</p>`).join('')}
+      </div>` : ''}
+  </div>`;
+}
+
+/* ============================ 21. BUSCA GLOBAL ============================ */
+function stripHTML(h) { const d = document.createElement('div'); d.innerHTML = h; return d.innerText; }
+function trechoBusca(texto, q) {
+  const i = texto.toLowerCase().indexOf(q);
+  if (i < 0) return '';
+  const ini = Math.max(0, i - 50);
+  return (ini > 0 ? '…' : '') + esc(texto.slice(ini, i)) + '<mark class="bg-butter-300/60 rounded px-0.5">' + esc(texto.slice(i, i + q.length)) + '</mark>' + esc(texto.slice(i + q.length, i + q.length + 70)) + '…';
+}
+function modalBusca() {
+  openModal(`
+    <div class="flex items-center gap-2 mb-4">
+      <i data-lucide="search" class="w-5 h-5 text-ink-400"></i>
+      <input id="buscaInp" oninput="clearTimeout(window._bt);window._bt=setTimeout(executarBusca,250)" placeholder="Buscar em textos, cards, questões e resumos…" class="flex-1 px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent text-sm">
+    </div>
+    <div id="buscaRes" class="max-h-[55dvh] overflow-y-auto"><p class="text-xs text-ink-300 dark:text-ink-500 text-center py-6">Digite ao menos 3 letras. Dica: a tecla "/" abre esta busca.</p></div>`);
+  $('#buscaInp').focus();
+}
+function executarBusca() {
+  const q = $('#buscaInp').value.trim().toLowerCase();
+  const out = $('#buscaRes');
+  if (q.length < 3) { out.innerHTML = '<p class="text-xs text-ink-300 dark:text-ink-500 text-center py-6">Digite ao menos 3 letras.</p>'; return; }
+  let html = '';
+  const grupo = (titulo, itens) => itens.length ? `<p class="text-[11px] font-semibold text-ink-400 uppercase tracking-wide mt-3 mb-1.5">${titulo} (${itens.length})</p>` + itens.slice(0, 8).join('') : '';
+
+  const txts = db.texts.map(t => {
+    const plain = t.titulo + ' ' + stripHTML(t.html);
+    if (!plain.toLowerCase().includes(q)) return null;
+    return `<button onclick="closeModal();openReader('${t.id}')" class="w-full text-left p-3 rounded-xl hover:bg-ink-50 dark:hover:bg-ink-850 text-sm">
+      <div class="font-medium">${t.kind === 'lei' ? '⚖️' : '📄'} ${esc(t.titulo)}</div>
+      <div class="text-xs text-ink-400 mt-0.5">${trechoBusca(plain, q)}</div></button>`;
+  }).filter(Boolean);
+
+  const cds = db.cards.map(c => {
+    const plain = c.front + ' ' + c.back;
+    if (!plain.toLowerCase().includes(q)) return null;
+    return `<div class="p-3 rounded-xl bg-ink-50 dark:bg-ink-850 text-sm mb-1.5">
+      <div class="font-medium">🗂 ${esc(c.front)}</div>
+      <div class="text-xs text-ink-400 mt-0.5">${esc(c.back)} · ${esc(materiaById(c.materiaId)?.nome || '')}</div></div>`;
+  }).filter(Boolean);
+
+  const qsts = db.questoes.map(qx => {
+    const plain = (qx.enunciado || qx.contexto || '') + ' ' + (qx.itens || []).map(i => i.texto).join(' ') + ' ' + (qx.alternativas || []).map(a => a.texto).join(' ');
+    if (!plain.toLowerCase().includes(q)) return null;
+    return `<button onclick="closeModal();showView('questoes');abrirQuestao('${qx.id}')" class="w-full text-left p-3 rounded-xl hover:bg-ink-50 dark:hover:bg-ink-850 text-sm">
+      <div class="font-medium">📝 ${esc(qx.banca)} · ${esc(materiaById(qx.materiaId)?.nome || '')}</div>
+      <div class="text-xs text-ink-400 mt-0.5">${trechoBusca(plain, q)}</div></button>`;
+  }).filter(Boolean);
+
+  const rsm = db.resumos.map(r => {
+    if (!r.md.toLowerCase().includes(q)) return null;
+    return `<button onclick="verResumo('${r.id}')" class="w-full text-left p-3 rounded-xl hover:bg-ink-50 dark:hover:bg-ink-850 text-sm">
+      <div class="font-medium">${TIPO_RESUMO[r.tipo] || r.tipo}</div>
+      <div class="text-xs text-ink-400 mt-0.5">${trechoBusca(r.md, q)}</div></button>`;
+  }).filter(Boolean);
+
+  html = grupo('Textos e leis', txts) + grupo('Flashcards', cds) + grupo('Questões', qsts) + grupo('Resumos', rsm);
+  out.innerHTML = html || '<p class="text-xs text-ink-300 dark:text-ink-500 text-center py-6">Nada encontrado.</p>';
+}
+
+/* ============================ 22. EXPORTAÇÃO PARA O ANKI ============================ */
+function exportarAnki() {
+  if (!db.cards.length) { toast('Nenhum flashcard para exportar'); return; }
+  const tsv = db.cards.map(c => {
+    const tag = ((materiaById(c.materiaId)?.nome || 'geral') + (c.topicoId ? '::' + topicoNome(c.materiaId, c.topicoId) : '')).replace(/\s+/g, '_');
+    const limpa = s => String(s || '').replace(/\t/g, ' ').replace(/\n/g, '<br>');
+    return [limpa(c.front), limpa(c.back), tag].join('\t');
+  }).join('\n');
+  const blob = new Blob(['﻿' + tsv], { type: 'text/tab-separated-values;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'aprovaplus-anki.txt';
+  a.click();
+  toast(`${db.cards.length} cards exportados — no Anki: Arquivo → Importar (campo 3 = tags)`);
+}
+
+/* ============================ 23. BACKUP AUTOMÁTICO ============================ */
+function checarBackup() {
+  const s = db.settings;
+  if (!s.autoBackup) return;
+  if (!(db.texts.length || db.cards.length || db.questoes.length)) return;
+  if (Date.now() - (s.lastBackup || 0) > 7 * 864e5) {
+    exportarDados();
+    s.lastBackup = Date.now(); save();
+    setTimeout(() => toast('💾 Backup automático baixado — guarde no iCloud Drive', 4000), 1200);
+  }
+}
+
+/* ============================ 20. INICIALIZAÇÃO ============================ */
+// salva grifos pendentes ao sair / trocar de aba
+window.addEventListener('beforeunload', () => { if (currentView === 'leitor') saveReaderHTML(); });
+window.addEventListener('resize', () => { if (currentView === 'leitor') resizeCanvasKeep(); });
+
+// substitui a view 'erros' do roteador padrão (usa render próprio)
+const _origShow = showView;
+showView = function (id) {
+  if (currentView === 'leitor') saveReaderHTML();
+  if (id === 'erros') { renderErros(); return; }
+  _origShow(id);
+};
+
+(async function boot() {
+  db = await loadDB();
+  flushSave();                                   // garante cópia no IndexedDB (inclui migração do LocalStorage)
+  if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});  // pede armazenamento persistente ao navegador
+  applyTheme();
+  renderNav();
+  showView('dashboard');
+  lucide.createIcons();
+  retomarTimer();      // restaura cronômetro em andamento (sobrevive a recarregar a página)
+  checarBackup();      // backup automático semanal
+
+  // PWA: service worker (funciona quando o app é servido via http/https)
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+})();
+
+// atalho de busca global: tecla "/"
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) {
+    e.preventDefault(); modalBusca();
+  }
+});
+</script>
+</body>
+</html>
