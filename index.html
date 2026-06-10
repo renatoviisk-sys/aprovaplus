@@ -552,6 +552,7 @@ function renderBiblioteca() {
     <div class="flex items-center justify-between mb-6">
       <div><h1 class="text-2xl font-semibold">Biblioteca</h1><p class="text-ink-400 text-sm">Matérias, tópicos e seus materiais.</p></div>
       <div class="flex gap-2">
+        <button onclick="modalImportarEdital()" class="px-3.5 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 text-sm font-medium hover:bg-ink-100 dark:hover:bg-ink-800 flex items-center gap-1.5" title="Criar matérias automaticamente por modelo de concurso ou pelo edital"><i data-lucide="file-input" class="w-4 h-4"></i><span class="hidden sm:inline">Edital</span></button>
         <button onclick="modalNovaMateria()" class="px-3.5 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 text-sm font-medium hover:bg-ink-100 dark:hover:bg-ink-800 flex items-center gap-1.5"><i data-lucide="folder-plus" class="w-4 h-4"></i><span class="hidden sm:inline">Matéria</span></button>
         <button onclick="modalNovoTexto()" class="px-3.5 py-2.5 rounded-xl bg-accent-500 hover:bg-accent-600 text-white text-sm font-medium flex items-center gap-1.5"><i data-lucide="plus" class="w-4 h-4"></i><span class="hidden sm:inline">Adicionar material</span></button>
       </div>
@@ -560,7 +561,10 @@ function renderBiblioteca() {
       <div class="text-center py-16 text-ink-400">
         <i data-lucide="book-open" class="w-10 h-10 mx-auto mb-3 opacity-50"></i>
         <p class="mb-4">Comece criando uma matéria e adicionando<br>seu primeiro PDF sintético ou lei seca.</p>
-        <button onclick="modalNovaMateria()" class="px-4 py-2.5 rounded-xl bg-accent-500 text-white text-sm font-medium">Criar primeira matéria</button>
+        <div class="flex gap-2 justify-center">
+          <button onclick="modalImportarEdital()" class="px-4 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 text-sm font-medium">📋 Usar modelo de concurso (ENAM, OAB…)</button>
+          <button onclick="modalNovaMateria()" class="px-4 py-2.5 rounded-xl bg-accent-500 text-white text-sm font-medium">Criar primeira matéria</button>
+        </div>
       </div>`}`;
   lucide.createIcons();
 }
@@ -791,12 +795,23 @@ function openReader(textId) {
   setPenMode(false);
   requestAnimationFrame(() => { setupCanvas(); loadDrawing(); });
 
-  // lei seca: popula navegação por artigo + delegação dos botões ⚡ por artigo
+  // lei seca: popula navegação por artigo (ordenada NUMERICAMENTE: 1, 2, 3… e sufixos -A, -B)
   if (t.kind === 'lei') {
     const arts = $$('#readerContent .lei-art');
     const nav = $('#artNav');
-    if (nav) nav.innerHTML = '<option value="">Ir para artigo…</option>' +
-      arts.map((a, i) => `<option value="${i}">${esc(a.querySelector('.art-num')?.textContent || 'Art. ' + (i + 1))}</option>`).join('');
+    if (nav) {
+      const vistos = new Set();
+      const itens = arts.map((a, i) => {
+        const label = (a.querySelector('.art-num')?.textContent || 'Art. ' + (i + 1)).trim();
+        const m = label.match(/(\d+)(?:\s*-\s*([A-Z]))?/i);
+        return { i, label, n: m ? +m[1] : 1e9, suf: (m && m[2]) ? m[2].toUpperCase().charCodeAt(0) : 0 };
+      })
+      // remove duplicatas (citações de artigos no meio do texto que o parser pegou): mantém a 1ª ocorrência
+      .filter(x => { const k = x.n + '-' + x.suf; if (vistos.has(k)) return false; vistos.add(k); return true; })
+      .sort((a, b) => a.n - b.n || a.suf - b.suf);
+      nav.innerHTML = '<option value="">Ir para artigo…</option>' +
+        itens.map(x => `<option value="${x.i}">${esc(x.label)}</option>`).join('');
+    }
   }
   $('#readerContent').addEventListener('click', e => {
     const b = e.target.closest('.art-gen');
@@ -2058,6 +2073,178 @@ function salvarImportadas() {
     db.questoes.push(q); n++;
   });
   save(); closeModal(); toast(`${n} questão(ões) importada(s) ✓`); renderQuestoes();
+}
+
+/* ============================ 15b. IMPORTAÇÃO DE EDITAL ============================
+   Dois caminhos: modelos prontos por concurso (ponto de partida editável)
+   ou colar o conteúdo programático do edital e a IA estruturar tudo.
+   Cria matérias + tópicos e já define os pesos no Ciclo.
+   ==================================================================================== */
+const EDITAIS_MODELO = {
+  enam: { nome: 'ENAM / Magistratura', materias: [
+    { nome: 'Direito Constitucional', peso: 5, topicos: ['Direitos e garantias fundamentais', 'Controle de constitucionalidade', 'Organização do Estado', 'Organização dos Poderes', 'Funções essenciais à Justiça', 'Jurisprudência do STF'] },
+    { nome: 'Direitos Humanos', peso: 4, topicos: ['Sistema global (ONU) e tratados', 'Sistema interamericano e Corte IDH', 'Incorporação dos tratados', 'Grupos vulneráveis e antidiscriminação', 'Precedentes da Corte IDH'] },
+    { nome: 'Direito Administrativo', peso: 4, topicos: ['Atos administrativos', 'Licitações e contratos (Lei 14.133)', 'Serviços públicos e concessões', 'Responsabilidade civil do Estado', 'Improbidade administrativa', 'Servidores públicos'] },
+    { nome: 'Direito Civil', peso: 5, topicos: ['LINDB', 'Pessoas e personalidade', 'Negócio jurídico', 'Obrigações e contratos', 'Responsabilidade civil', 'Direitos reais', 'Família e sucessões'] },
+    { nome: 'Direito Processual Civil', peso: 5, topicos: ['Normas fundamentais e competência', 'Tutela provisória', 'Procedimento comum', 'Sentença e coisa julgada', 'Recursos', 'Precedentes e IRDR', 'Execução'] },
+    { nome: 'Direito Penal', peso: 4, topicos: ['Teoria do crime', 'Penas e dosimetria', 'Crimes contra a pessoa', 'Crimes contra o patrimônio', 'Crimes contra a administração pública', 'Legislação penal especial'] },
+    { nome: 'Direito Processual Penal', peso: 4, topicos: ['Inquérito e investigação', 'Prisões e medidas cautelares', 'Provas', 'Procedimentos e júri', 'Nulidades e recursos', 'Acordo de não persecução penal'] },
+    { nome: 'Direito Empresarial', peso: 2, topicos: ['Empresa e empresário', 'Sociedades', 'Títulos de crédito', 'Falência e recuperação judicial'] },
+    { nome: 'Humanística', peso: 3, topicos: ['Ética e deontologia da magistratura', 'Filosofia do direito', 'Sociologia jurídica', 'Psicologia judiciária', 'CNJ e Poder Judiciário'] },
+  ]},
+  oab: { nome: 'OAB · 1ª fase', materias: [
+    { nome: 'Ética e Estatuto da OAB', peso: 5, topicos: ['Estatuto e Regulamento Geral', 'Código de Ética', 'Honorários', 'Processo disciplinar'] },
+    { nome: 'Direito Constitucional', peso: 4, topicos: ['Direitos fundamentais', 'Controle de constitucionalidade', 'Organização dos Poderes', 'Remédios constitucionais'] },
+    { nome: 'Direito Civil', peso: 4, topicos: ['Parte geral', 'Obrigações e contratos', 'Responsabilidade civil', 'Reais, família e sucessões'] },
+    { nome: 'Direito Processual Civil', peso: 4, topicos: ['Competência', 'Procedimento comum', 'Tutela provisória', 'Recursos'] },
+    { nome: 'Direito Penal', peso: 3, topicos: ['Teoria do crime', 'Penas', 'Crimes em espécie'] },
+    { nome: 'Direito Processual Penal', peso: 3, topicos: ['Inquérito e ação penal', 'Prisões', 'Procedimentos e recursos'] },
+    { nome: 'Direito Administrativo', peso: 3, topicos: ['Atos e poderes', 'Licitações', 'Responsabilidade do Estado', 'Servidores'] },
+    { nome: 'Direito do Trabalho', peso: 3, topicos: ['Contrato de trabalho', 'Jornada e remuneração', 'Rescisão'] },
+    { nome: 'Processo do Trabalho', peso: 2, topicos: ['Reclamação trabalhista', 'Recursos', 'Execução'] },
+    { nome: 'Direito Tributário', peso: 3, topicos: ['Competência e limitações', 'Obrigação e crédito tributário', 'Impostos em espécie'] },
+    { nome: 'Direito Empresarial', peso: 2, topicos: ['Sociedades', 'Títulos de crédito', 'Falência'] },
+    { nome: 'Difusos: ECA, CDC e Ambiental', peso: 2, topicos: ['ECA', 'Consumidor', 'Ambiental'] },
+  ]},
+  tribunais: { nome: 'Tribunais · Analista Judiciário', materias: [
+    { nome: 'Língua Portuguesa', peso: 5, topicos: ['Interpretação de texto', 'Morfossintaxe', 'Concordância e regência', 'Pontuação', 'Redação oficial'] },
+    { nome: 'Direito Constitucional', peso: 4, topicos: ['Direitos fundamentais', 'Organização dos Poderes', 'Poder Judiciário', 'Funções essenciais'] },
+    { nome: 'Direito Administrativo', peso: 4, topicos: ['Atos administrativos', 'Licitações (Lei 14.133)', 'Lei 8.112/90', 'Improbidade', 'Poderes administrativos'] },
+    { nome: 'Direito Processual Civil', peso: 4, topicos: ['Atos processuais e prazos', 'Procedimento comum', 'Recursos', 'Cumprimento de sentença'] },
+    { nome: 'Direito Penal e Processual Penal', peso: 3, topicos: ['Crimes contra a administração', 'Inquérito e ação penal', 'Prisões e procedimentos'] },
+    { nome: 'Raciocínio Lógico', peso: 2, topicos: ['Lógica proposicional', 'Sequências e análise combinatória', 'Probabilidade'] },
+    { nome: 'Informática / Noções de TI', peso: 2, topicos: ['Segurança da informação', 'Redes e internet', 'Editores e planilhas'] },
+  ]},
+  policiais: { nome: 'Carreiras Policiais (PF/PRF)', materias: [
+    { nome: 'Língua Portuguesa', peso: 4, topicos: ['Interpretação de texto', 'Morfossintaxe', 'Concordância e regência', 'Reescrita de frases'] },
+    { nome: 'Raciocínio Lógico-Matemático', peso: 3, topicos: ['Lógica proposicional', 'Combinatória e probabilidade', 'Matemática básica'] },
+    { nome: 'Informática', peso: 4, topicos: ['Redes e protocolos', 'Segurança da informação', 'Sistemas operacionais', 'Banco de dados e BI'] },
+    { nome: 'Direito Constitucional', peso: 3, topicos: ['Direitos fundamentais', 'Segurança pública (art. 144)', 'Organização do Estado'] },
+    { nome: 'Direito Administrativo', peso: 3, topicos: ['Atos e poderes', 'Agentes públicos', 'Responsabilidade do Estado'] },
+    { nome: 'Direito Penal', peso: 4, topicos: ['Teoria do crime', 'Crimes contra a pessoa e patrimônio', 'Crimes contra a administração'] },
+    { nome: 'Direito Processual Penal', peso: 4, topicos: ['Inquérito policial', 'Prisões e cautelares', 'Provas'] },
+    { nome: 'Legislação Especial', peso: 4, topicos: ['Lei de Drogas', 'Estatuto do Desarmamento', 'Organização criminosa', 'Lavagem de dinheiro', 'Abuso de autoridade', 'CTB (PRF)'] },
+  ]},
+  inss: { nome: 'INSS · Técnico do Seguro Social', materias: [
+    { nome: 'Língua Portuguesa', peso: 4, topicos: ['Interpretação de texto', 'Morfossintaxe', 'Concordância e regência'] },
+    { nome: 'Raciocínio Lógico', peso: 3, topicos: ['Lógica proposicional', 'Problemas aritméticos'] },
+    { nome: 'Informática', peso: 3, topicos: ['Internet e correio eletrônico', 'Segurança', 'Editores e planilhas'] },
+    { nome: 'Ética no Serviço Público', peso: 2, topicos: ['Decreto 1.171/94', 'Lei 8.112/90 (deveres e proibições)'] },
+    { nome: 'Direito Constitucional', peso: 2, topicos: ['Direitos sociais', 'Seguridade social na CF'] },
+    { nome: 'Direito Administrativo', peso: 3, topicos: ['Atos administrativos', 'Poderes', 'Lei 8.112/90'] },
+    { nome: 'Direito Previdenciário', peso: 5, topicos: ['Seguridade social: princípios', 'Segurados e dependentes', 'Carência e filiação', 'Benefícios em espécie', 'Custeio', 'Lei 8.213/91'] },
+  ]},
+  fiscal: { nome: 'Área Fiscal (base comum)', materias: [
+    { nome: 'Língua Portuguesa', peso: 4, topicos: ['Interpretação de texto', 'Morfossintaxe', 'Redação oficial'] },
+    { nome: 'Direito Tributário', peso: 5, topicos: ['Competência tributária', 'Limitações ao poder de tributar', 'Obrigação tributária', 'Crédito tributário', 'Impostos em espécie', 'Processo administrativo fiscal'] },
+    { nome: 'Contabilidade Geral', peso: 5, topicos: ['Patrimônio e escrituração', 'Demonstrações contábeis', 'Operações com mercadorias', 'CPCs principais'] },
+    { nome: 'Direito Constitucional', peso: 3, topicos: ['Sistema tributário nacional', 'Direitos fundamentais', 'Organização do Estado'] },
+    { nome: 'Direito Administrativo', peso: 3, topicos: ['Atos administrativos', 'Licitações', 'Agentes públicos'] },
+    { nome: 'Raciocínio Lógico-Matemático', peso: 3, topicos: ['Lógica proposicional', 'Matemática financeira', 'Estatística básica'] },
+    { nome: 'Auditoria', peso: 4, topicos: ['Normas de auditoria', 'Planejamento e evidências', 'Auditoria fiscal'] },
+    { nome: 'Economia / AFO', peso: 2, topicos: ['Micro e macroeconomia básica', 'Orçamento público', 'LRF'] },
+  ]},
+};
+
+/* cria/mescla matérias, tópicos e pesos (não duplica o que já existe) */
+function criarEstrutura(materias) {
+  let nM = 0, nT = 0;
+  materias.forEach(x => {
+    let m = db.materias.find(mm => mm.nome.toLowerCase() === String(x.nome).toLowerCase());
+    if (!m) { m = { id: uid(), nome: String(x.nome), topicos: [] }; db.materias.push(m); nM++; }
+    (x.topicos || []).forEach(tn => {
+      if (!m.topicos.some(t => t.nome.toLowerCase() === String(tn).toLowerCase())) {
+        m.topicos.push({ id: uid(), nome: String(tn) }); nT++;
+      }
+    });
+    if (x.peso) db.edital.pesos[m.id] = Math.min(5, Math.max(1, +x.peso || 3));
+  });
+  save();
+  return { nM, nT };
+}
+
+function modalImportarEdital() {
+  openModal(`
+    <h3 class="font-semibold text-lg mb-1 flex items-center gap-2"><i data-lucide="file-input" class="w-5 h-5 text-accent-500"></i>Montar estrutura do concurso</h3>
+    <p class="text-xs text-ink-400 mb-4">Cria as matérias, os tópicos do edital e já define os pesos no Ciclo. Tudo editável depois.</p>
+
+    <label class="text-xs font-medium text-ink-400 block mb-1">1 · Modelo pronto (ponto de partida)</label>
+    <div class="flex gap-2 mb-2">
+      <select id="edModelo" class="flex-1 px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-sm">
+        ${Object.entries(EDITAIS_MODELO).map(([k, v]) => `<option value="${k}">${v.nome} (${v.materias.length} matérias)</option>`).join('')}
+      </select>
+      <button onclick="aplicarModelo()" class="px-4 rounded-xl bg-accent-500 text-white text-sm font-medium">Criar</button>
+    </div>
+    <p class="text-[11px] text-ink-400 mb-4">⚠️ Modelos são uma base genérica — confira sempre com o edital real do seu concurso.</p>
+
+    <div class="border-t border-ink-100 dark:border-ink-800 pt-4">
+      <label class="text-xs font-medium text-ink-400 block mb-1">2 · Ou cole o conteúdo programático do SEU edital (IA estrutura)</label>
+      <textarea id="edRaw" rows="7" placeholder="Cole aqui o trecho 'DOS CONHECIMENTOS' / conteúdo programático do edital…" class="w-full px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-transparent text-sm mb-2"></textarea>
+      <div id="edArea"></div>
+      <button id="edBtn" onclick="importarEditalIA()" class="w-full py-3 rounded-xl bg-sage-500 text-white text-sm font-medium">⚡ Estruturar edital com IA</button>
+    </div>`);
+}
+function aplicarModelo() {
+  const mod = EDITAIS_MODELO[$('#edModelo').value];
+  if (!mod) return;
+  if (!confirm(`Criar a estrutura "${mod.nome}"?\n${mod.materias.length} matérias com tópicos e pesos sugeridos serão adicionadas (sem duplicar o que já existe).`)) return;
+  const { nM, nT } = criarEstrutura(mod.materias);
+  closeModal(); renderBiblioteca();
+  toast(`✓ ${nM} matéria(s) e ${nT} tópico(s) criados — pesos já definidos no Ciclo`);
+}
+function promptEdital(raw) {
+  return `Você é um especialista em concursos públicos. Receberá o conteúdo programático de um edital (texto bruto, possivelmente mal formatado).
+
+TAREFA: extraia a estrutura de estudo.
+REGRAS:
+1. Identifique cada MATÉRIA/disciplina e seus TÓPICOS.
+2. Agrupe subtópicos muito miúdos em tópicos maiores: no máximo 15 tópicos por matéria, com nomes curtos e estudáveis.
+3. Atribua peso de 1 a 5 a cada matéria conforme a importância relativa no edital (nº de questões, extensão do conteúdo); use 3 quando não houver pista.
+4. Identifique o nome do concurso, se possível.
+
+Responda APENAS com JSON válido:
+{"concurso":"...","materias":[{"nome":"...","peso":3,"topicos":["...","..."]}]}
+
+CONTEÚDO PROGRAMÁTICO:
+"""
+${raw}
+"""`;
+}
+let _editalExtraido = null;
+async function importarEditalIA() {
+  const raw = $('#edRaw').value.trim();
+  if (raw.length < 50) { toast('Cole o conteúdo programático primeiro'); return; }
+  const btn = $('#edBtn'), area = $('#edArea');
+  btn.disabled = true; btn.textContent = 'Lendo o edital…';
+  area.innerHTML = `<div class="text-center py-3 text-sm text-ink-400 animate-pulse">🧠 Estruturando matérias e tópicos…</div>`;
+  try {
+    const out = extractJSON(await callClaude(promptEdital(raw.slice(0, 16000)), 8192));
+    _editalExtraido = out.materias || [];
+    area.innerHTML = `
+      <p class="text-xs font-medium text-ink-400 mb-2">${out.concurso ? esc(out.concurso) + ' · ' : ''}Revise e desmarque o que não quiser:</p>
+      <div class="max-h-56 overflow-y-auto mb-3">
+        ${_editalExtraido.map((m, i) => `
+          <label class="flex gap-2.5 items-start p-3 rounded-xl bg-ink-50 dark:bg-ink-850 mb-2 cursor-pointer">
+            <input type="checkbox" checked data-ei="${i}" class="mt-1 accent-[#6c6cbb]">
+            <div class="text-sm min-w-0">
+              <div class="font-medium">${esc(m.nome)} <span class="text-xs text-ink-400 font-normal">· peso ${m.peso || 3}</span></div>
+              <div class="text-xs text-ink-400 mt-0.5">${(m.topicos || []).length} tópicos: ${esc((m.topicos || []).slice(0, 4).join(', '))}${(m.topicos || []).length > 4 ? '…' : ''}</div>
+            </div>
+          </label>`).join('')}
+      </div>
+      <button onclick="salvarEditalExtraido()" class="w-full py-3 rounded-xl bg-sage-500 text-white text-sm font-medium mb-2">💾 Criar matérias selecionadas</button>`;
+    btn.style.display = 'none';
+  } catch (e) {
+    area.innerHTML = `<div class="text-sm text-blush-500 bg-blush-100 dark:bg-ink-850 rounded-xl p-3 mb-2">⚠️ ${esc(e.message)}</div>`;
+    btn.disabled = false; btn.textContent = '⚡ Tentar novamente';
+  }
+}
+function salvarEditalExtraido() {
+  const sel = $$('#edArea input[data-ei]:checked').map(c => _editalExtraido[+c.dataset.ei]);
+  if (!sel.length) { toast('Selecione ao menos uma matéria'); return; }
+  const { nM, nT } = criarEstrutura(sel);
+  closeModal(); renderBiblioteca();
+  toast(`✓ ${nM} matéria(s) e ${nT} tópico(s) criados — pesos definidos no Ciclo`);
 }
 
 /* ============================ 16. SIMULADOS ============================ */
